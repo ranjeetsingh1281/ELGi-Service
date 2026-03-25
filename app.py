@@ -1,16 +1,22 @@
 import streamlit as st
 import pandas as pd
 import os
-import sqlite3
 from datetime import datetime
+from io import BytesIO
 from twilio.rest import Client
 
 # ==============================
-# 🔐 MULTI USER LOGIN
+# 🔐 ROLE BASED LOGIN
 # ==============================
 USERS = {
-    "admin": {"password": "1234", "role": "admin"},
-    "user": {"password": "user123", "role": "viewer"}
+    "user1": {"pass": "123", "role": "dpsac"},
+    "user2": {"pass": "123", "role": "dpsac"},
+    "user3": {"pass": "123", "role": "dpsac"},
+    "user4": {"pass": "123", "role": "industrial"},
+    "user5": {"pass": "123", "role": "industrial"},
+    "user6": {"pass": "123", "role": "industrial"},
+    "admin1": {"pass": "admin", "role": "admin"},
+    "admin2": {"pass": "admin", "role": "admin"},
 }
 
 def login():
@@ -19,7 +25,7 @@ def login():
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if u in USERS and USERS[u]["password"] == p:
+        if u in USERS and USERS[u]["pass"] == p:
             st.session_state["login"] = True
             st.session_state["role"] = USERS[u]["role"]
             st.success("Login Success")
@@ -40,16 +46,11 @@ if not st.session_state["login"]:
 st.set_page_config(layout="wide")
 
 # ==============================
-# ☁️ CLOUD DB (SQLite)
-# ==============================
-conn = sqlite3.connect("elgi.db", check_same_thread=False)
-
-# ==============================
-# 📲 WHATSAPP (Twilio)
+# 📲 WHATSAPP ALERT
 # ==============================
 def send_whatsapp(msg):
     try:
-        client = Client("YOUR_SID", "YOUR_AUTH_TOKEN")
+        client = Client("YOUR_SID", "YOUR_TOKEN")
         client.messages.create(
             body=msg,
             from_='whatsapp:+14155238886',
@@ -59,7 +60,24 @@ def send_whatsapp(msg):
         pass
 
 # ==============================
-# 🧠 HELPERS
+# 📂 FILE UPLOAD SYSTEM
+# ==============================
+st.sidebar.markdown("### 📂 Upload Excel")
+uploaded = st.sidebar.file_uploader("Upload Master File", type=["xlsx"])
+
+def load_data():
+    if uploaded:
+        df = pd.read_excel(uploaded)
+        df.columns = df.columns.str.strip()
+        return df
+    else:
+        st.warning("Upload Excel File")
+        return pd.DataFrame()
+
+df = load_data()
+
+# ==============================
+# 📊 HELPERS
 # ==============================
 def fmt(dt):
     try:
@@ -67,172 +85,95 @@ def fmt(dt):
     except:
         return "N/A"
 
-def get_color(val):
-    if val is None:
-        return "⚪ N/A"
-    elif val < 0:
-        return f"🔴 {val}"
-    elif val <= 200:
-        return f"🟡 {val}"
-    else:
-        return f"🟢 {val}"
+def to_excel(df):
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False)
+    return buffer.getvalue()
 
 # ==============================
-# 📂 LOAD DATA
+# 📊 SIDEBAR ACCESS CONTROL
 # ==============================
-@st.cache_data
-def load():
-    files = os.listdir('.')
+role = st.session_state["role"]
 
-    def f(name):
-        return next((x for x in files if name.lower() in x.lower()), None)
-
-    m = pd.read_excel(f("Master_Data")) if f("Master_Data") else pd.DataFrame()
-    od = pd.read_excel(f("Master_OD_Data")) if f("Master_OD_Data") else pd.DataFrame()
-    foc = pd.read_excel(f("FOC")) if f("FOC") else pd.DataFrame()
-    s = pd.read_excel(f("Service")) if f("Service") else pd.DataFrame()
-
-    for d in [m, od, foc, s]:
-        if not d.empty:
-            d.columns = d.columns.str.strip()
-
-    return m, od, foc, s
-
-master_df, master_od_df, foc_df, service_df = load()
+if role == "dpsac":
+    choice = "DPSAC Tracker"
+elif role == "industrial":
+    choice = "INDUSTRIAL Tracker"
+else:
+    choice = st.sidebar.radio("Select Tracker", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
 
 # ==============================
-# 🧭 MENU
+# 📊 DASHBOARD
 # ==============================
-st.sidebar.title("🏢 ELGi Menu")
-choice = st.sidebar.radio("Select Tracker", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
+def dashboard(df, title):
 
-# ==============================
-# 🚀 DASHBOARD
-# ==============================
-def dashboard(df, title, industrial=False):
+    st.title(title)
 
-    st.title(f"🛠️ {title}")
+    if df.empty:
+        return
 
+    status_col = next((c for c in df.columns if "status" in c.lower()), None)
     cust_col = next((c for c in df.columns if "customer" in c.lower()), None)
     fab_col = next((c for c in df.columns if "fabrication" in c.lower()), None)
-    status_col = next((c for c in df.columns if "unit status" in c.lower()), None)
-    cat_col = next((c for c in df.columns if "category" in c.lower()), None)
 
-    # ==============================
-    # 📊 METRICS
-    # ==============================
+    # METRICS
     if status_col:
         total = len(df)
         active = len(df[df[status_col].str.contains("Active", case=False, na=False)])
         shifted = len(df[df[status_col].str.contains("Shifted", case=False, na=False)])
         sold = len(df[df[status_col].str.contains("Sold", case=False, na=False)])
 
-        st.markdown(f"""
-        | Total | Active | Shifted | Sold |
-        |---|---|---|---|
-        | **{total}** | **{active}** | **{shifted}** | **{sold}** |
-        """)
+        st.metric("Total", total)
+        st.metric("Active", active)
+        st.metric("Shifted", shifted)
+        st.metric("Sold", sold)
 
-        st.sidebar.markdown("### 📊 Unit Summary")
+        st.sidebar.markdown("### 📊 Summary")
         st.sidebar.write(f"Total: {total}")
         st.sidebar.write(f"Active: {active}")
         st.sidebar.write(f"Shifted: {shifted}")
         st.sidebar.write(f"Sold: {sold}")
 
-    if cat_col:
-        st.sidebar.markdown("### 📦 Category Count")
-        for k, v in df[cat_col].value_counts().items():
-            st.sidebar.write(f"{k}: {v}")
-
-    # ==============================
     # ALERT ENGINE
-    # ==============================
-    overdue_count = 0
-
-    last_hmr_col = next((c for c in df.columns if "last call hmr" in c.lower()), None)
-    avg_col = next((c for c in df.columns if "avg" in c.lower()), None)
-    date_col = next((c for c in df.columns if "last call" in c.lower() and "date" in c.lower()), None)
-
+    overdue = 0
     for _, row in df.iterrows():
         try:
-            last = row.get(last_hmr_col, 0)
-            avg = row.get(avg_col, 0)
-            last_date = pd.to_datetime(row.get(date_col))
-
-            days = (pd.Timestamp.today() - last_date).days
-            live = (days * avg) + last
-
-            if live > 2000:
-                overdue_count += 1
+            if row.get("HMR Cal.", 0) > 2000:
+                overdue += 1
         except:
             pass
 
-    if overdue_count > 0:
-        st.error(f"🚨 {overdue_count} Machines Overdue!")
-        send_whatsapp(f"{overdue_count} machines overdue!")
+    if overdue > 0:
+        st.error(f"🚨 {overdue} Machines Overdue!")
+        send_whatsapp(f"{overdue} machines overdue!")
     else:
-        st.success("✅ All Machines Healthy")
+        st.success("All Good")
 
-    # ==============================
-    # MACHINE TRACKER
-    # ==============================
-    tab1, tab2, tab3 = st.tabs(["Machine Tracker", "FOC List", "Service Pending"])
+    # FILTER
+    customers = ["All"] + sorted(df[cust_col].astype(str).unique())
+    sel_c = st.selectbox("Customer", customers)
 
-    with tab1:
-        col1, col2 = st.columns(2)
+    df_f = df if sel_c == "All" else df[df[cust_col] == sel_c]
 
-        customers = ["All"] + sorted(df[cust_col].astype(str).unique())
-        sel_c = col1.selectbox("Customer", customers)
+    fabs = ["Select"] + sorted(df_f[fab_col].astype(str).unique())
+    sel_f = st.selectbox("Fabrication No", fabs)
 
-        df_f = df if sel_c == "All" else df[df[cust_col] == sel_c]
+    if sel_f != "Select":
+        row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
 
-        fabs = ["Select"] + sorted(df_f[fab_col].astype(str).unique())
-        sel_f = col2.selectbox("Fabrication No", fabs)
+        st.subheader("Machine Details")
+        st.write(row)
 
-        if sel_f != "Select":
-            row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
-
-            c1, c2, c3, c4 = st.columns(4)
-
-            with c1:
-                st.markdown("### Customer Info")
-                st.write(row)
-
-            with c2:
-                st.markdown("### Replacement Dates")
-                for col in df.columns:
-                    if "date" in col.lower():
-                        st.write(f"{col}: {fmt(row.get(col))}")
-
-            with c3:
-                st.markdown("### Remaining Hours")
-                st.write("Auto calculated")
-
-            with c4:
-                st.markdown("### Due Dates")
-                for col in df.columns:
-                    if "due" in col.lower():
-                        st.write(f"{col}: {fmt(row.get(col))}")
-
-            st.subheader("FOC")
-            st.dataframe(foc_df)
-
-            st.subheader("Service")
-            st.dataframe(service_df)
-
-    with tab2:
-        st.dataframe(foc_df)
-
-    with tab3:
-        st.dataframe(df)
+    # REPORT
+    st.download_button("📥 Download Report", to_excel(df), "report.xlsx")
 
 # ==============================
 # RUN
 # ==============================
 if choice == "DPSAC Tracker":
-    dashboard(master_df, "DPSAC Tracker", False)
+    dashboard(df, "DPSAC Tracker")
 else:
-    dashboard(master_od_df, "INDUSTRIAL Tracker", True)
+    dashboard(df, "Industrial Tracker")
 
 # ==============================
 # LOGOUT

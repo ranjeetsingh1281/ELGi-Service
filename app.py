@@ -1,99 +1,80 @@
 import streamlit as st
 import pandas as pd
-import urllib.parse
 from supabase import create_client, Client
 from io import BytesIO
 
 # ==============================
-# 🔐 SUPABASE CONFIG
+# 🔐 SUPABASE CONFIG (Secrets Check)
 # ==============================
-SUPABASE_URL = st.secrets["SUPABASE_URL"] # GitHub Secrets mein daalein
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+if "SUPABASE_URL" in st.secrets and "SUPABASE_KEY" in st.secrets:
+    URL = st.secrets["SUPABASE_URL"].strip()
+    KEY = st.secrets["SUPABASE_KEY"].strip()
+    supabase: Client = create_client(URL, KEY)
+else:
+    st.error("🚨 Missing Secrets in Streamlit Settings!")
+    st.stop()
 
 # ==============================
-# 🔐 LOGIN SYSTEM
+# 📂 DATA FUNCTIONS
 # ==============================
-USER_DB = {"admin": "admin123", "user1": "dpsac123", "user2": "ind123"}
-
-def login():
-    st.title("🔐 ELGi Global - Cloud Edition")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
-            st.session_state["login"], st.session_state["user"] = True, u
-            st.rerun()
-        else: st.error("Invalid Credentials")
-
-if "login" not in st.session_state or not st.session_state["login"]:
-    login(); st.stop()
-
-# ==============================
-# ⚙️ HELPERS
-# ==============================
-st.set_page_config(page_title="ELGi Global Cloud Tracker", layout="wide")
-
-def fmt(dt):
-    if not dt or dt == "N/A": return "N/A"
-    return pd.to_datetime(dt).strftime('%d-%b-%y')
-
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
-
-# ==============================
-# 📂 DATA LOADING FROM DB
-# ==============================
-@st.cache_data(ttl=600) # Refresh every 10 mins
+@st.cache_data(ttl=600)
 def fetch_data(tracker_type):
-    res = supabase.table("machines").select("*").eq("tracker_type", tracker_type).execute()
-    return pd.DataFrame(res.data)
+    try:
+        res = supabase.table("machines").select("*").eq("tracker_type", tracker_type).execute()
+        return pd.DataFrame(res.data)
+    except Exception as e:
+        st.error(f"DB Error: {e}")
+        return pd.DataFrame()
+
+def upload_to_supabase(df, tracker_type):
+    progress_bar = st.progress(0)
+    total = len(df)
+    for i, row in df.iterrows():
+        data = {
+            "fabrication_id": str(row.get('Fabrication Number', row.get('Fabrication', ''))),
+            "customer_name": str(row.get('Customer', 'Unknown')),
+            "category": str(row.get('Category', 'N/A')),
+            "unit_status": str(row.get('Unit Status', 'Active')),
+            "avg_running_hrs": float(row.get('Average Running Hours', row.get('Avg. Running', 0))),
+            "current_hmr": float(row.get('Current Hours', row.get('CURRENT HMR', 0))),
+            "total_hours_dn": float(row.get('Total Hours', row.get('MDA Total Hours', 0))),
+            "last_service_date": str(row.get('Last Call Date', '2000-01-01')),
+            "tracker_type": tracker_type
+        }
+        # Cloud mein insert/update (Upsert)
+        supabase.table("machines").upsert(data).execute()
+        progress_bar.progress((i + 1) / total)
+    st.success(f"✅ {total} Records Migrated to Supabase!")
 
 # ==============================
-# 💎 TRACKER ENGINE
+# 🏢 APP INTERFACE
 # ==============================
-def run_tracker(df, name):
-    st.title(f"🛠️ {name} Cloud Tracker")
+st.sidebar.title("☁️ ELGi Cloud Admin")
+nav = st.sidebar.radio("Navigation", ["Tracker Dashboard", "📤 Migration Center"])
+
+if nav == "📤 Migration Center":
+    st.title("📤 Excel to Cloud Migration")
+    st.write("Purana Excel data yahan upload karke Supabase mein bhejein.")
     
-    t1, t2 = st.tabs(["Machine Tracker", "⏳ Service Pending"])
+    t_type = st.selectbox("Select Tracker Type", ["DPSAC", "INDUSTRIAL"])
+    uploaded_file = st.file_uploader("Choose Excel File", type="xlsx")
     
-    with t1:
-        colA, colB = st.columns(2)
-        sel_c = colA.selectbox(f"Customer", ["All"] + sorted(df["customer_name"].unique()))
-        df_f = df if sel_c == "All" else df[df["customer_name"] == sel_c]
-        sel_f = colB.selectbox(f"Fabrication Number", ["Select"] + sorted(df_f["fabrication_id"].unique()))
+    if uploaded_file and st.button("🚀 Start Migration to Cloud"):
+        df_excel = pd.read_excel(uploaded_file, engine='openpyxl')
+        upload_to_supabase(df_excel, t_type)
 
-        if sel_f != "Select":
-            row = df_f[df_f["fabrication_id"] == sel_f].iloc[0]
-            m1, m2 = st.columns(2)
-            with m1:
-                st.info("📋 Machine Info")
-                st.write(f"**Cust:** {row['customer_name']}")
-                st.write(f"**Current Hours:** `{row['current_hmr']}` 📟")
-                st.write(f"**Total Hours (DN):** `{row['total_hours_dn']}` 📊")
-                st.write(f"**Last Service:** {fmt(row['last_service_date'])} 📅")
-                
-                # --- UPDATE HMR OPTION (The Power of DB) ---
-                new_hmr = st.number_input("Update Live HMR:", value=float(row['current_hmr']))
-                if st.button("💾 Save to Cloud"):
-                    supabase.table("machines").update({"current_hmr": new_hmr}).eq("fabrication_id", sel_f).execute()
-                    st.success("Cloud Updated! Refreshing...")
-                    st.cache_data.clear()
-                    st.rerun()
-
-    with t2:
-        st.subheader("⏳ Overdue Machines")
-        # SQL logic can be added here to filter overdue
-        st.dataframe(df, use_container_width=True)
-
-# --- NAVIGATION ---
-nav = st.sidebar.radio("Go to:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"])
-if nav == "DPSAC Tracker": run_tracker(fetch_data("DPSAC"), "DPSAC")
-elif nav == "INDUSTRIAL Tracker": run_tracker(fetch_data("INDUSTRIAL"), "INDUSTRIAL")
-elif nav == "📢 Automation Center":
-    st.title("📢 Broadcast Alerts")
-    if st.button("📱 WhatsApp All Overdue"):
-        st.info("WhatsApp API integration required.")
+elif nav == "Tracker Dashboard":
+    st.title("🛠️ ELGi Global Cloud Tracker")
+    t_choice = st.selectbox("View Tracker", ["DPSAC", "INDUSTRIAL"])
+    
+    df_cloud = fetch_data(t_choice)
+    if not df_cloud.empty:
+        st.success(f"Linked to Supabase! Found {len(df_cloud)} machines.")
+        st.dataframe(df_cloud, use_container_width=True)
+        
+        # --- Export Option ---
+        st.download_button("📥 Export Cloud Data to Excel", 
+                           df_cloud.to_csv(index=False).encode('utf-8'), 
+                           f"{t_choice}_Cloud_Data.csv", "text/csv")
+    else:
+        st.warning("Database khali hai! Pehle 'Migration Center' mein jaakar Excel upload karein.")

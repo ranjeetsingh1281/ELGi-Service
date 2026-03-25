@@ -5,3 +5,4 @@ xlsxwriter
 pywhatkit
 twilio
 schedule
+supabase

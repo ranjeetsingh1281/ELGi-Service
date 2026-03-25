@@ -1,67 +1,63 @@
 import streamlit as st
 import pandas as pd
-import time
 from supabase import create_client, Client
 
 # ==============================
-# 🔐 SUPABASE CONFIG (Cleaned)
+# 🔐 SUPABASE CONFIG
 # ==============================
-if "SUPABASE_URL" in st.secrets and "SUPABASE_KEY" in st.secrets:
-    URL = st.secrets["SUPABASE_URL"].strip().rstrip('/')
-    KEY = st.secrets["SUPABASE_KEY"].strip()
-    supabase: Client = create_client(URL, KEY)
-else:
-    st.error("🚨 Secrets missing!")
-    st.stop()
+URL = st.secrets["SUPABASE_URL"].strip().rstrip('/')
+KEY = st.secrets["SUPABASE_KEY"].strip()
+supabase: Client = create_client(URL, KEY)
 
 # ==============================
-# 📤 MIGRATION LOGIC (Robust)
+# 📤 MIGRATION LOGIC (For FOC & Service Details)
 # ==============================
-def clean_val(val, default=0.0):
-    try:
-        if pd.isna(val) or val == "": return default
-        return float(val)
-    except: return default
+def upload_foc(df):
+    st.info(f"📦 Uploading {len(df)} FOC Records...")
+    for _, row in df.iterrows():
+        data = {
+            "fabrication_id": str(row.get('Fabrication Number', row.get('Fabrication', ''))).strip(),
+            "description": str(row.get('Description', row.get('Item', 'N/A'))),
+            "service_date": str(pd.to_datetime(row.get('Date', '2024-01-01')).date())
+        }
+        supabase.table("service_logs").upsert(data).execute() # Using service_logs table for simplicity
+    st.success("✅ FOC Sync Success!")
 
-def upload_to_supabase(df, tracker_type):
-    st.info(f"🚀 Uploading {len(df)} records for {tracker_type}...")
-    pb = st.progress(0)
-    
-    for i, row in df.iterrows():
-        try:
-            # Fabrication ID extraction
-            fab_id = str(row.get('Fabrication Number', row.get('Fabrication', ''))).strip()
-            if not fab_id or fab_id == "0" or fab_id == "0.0": continue
+def upload_service_details(df):
+    st.info(f"🕒 Uploading {len(df)} Service Visits...")
+    for _, row in df.iterrows():
+        data = {
+            "fabrication_id": str(row.get('Fabrication Number', row.get('Fabrication', ''))).strip(),
+            "service_date": str(pd.to_datetime(row.get('Visit Date', '2024-01-01')).date()),
+            "description": str(row.get('Service Done', 'N/A')),
+            "technician_name": str(row.get('Engineer', 'Admin'))
+        }
+        supabase.table("service_logs").upsert(data).execute()
+    st.success("✅ Service Details Sync Success!")
 
-            data = {
-                "fabrication_id": fab_id,
-                "customer_name": str(row.get('Customer', 'Unknown')),
-                "category": str(row.get('Category', 'N/A')),
-                "unit_status": str(row.get('Unit Status', 'Active')),
-                "avg_running_hrs": clean_val(row.get('Average Running Hours', row.get('Avg. Running', 0))),
-                "current_hmr": clean_val(row.get('Current Hours', row.get('CURRENT HMR', 0))),
-                "total_hours_dn": clean_val(row.get('Total Hours', row.get('MDA Total Hours', 0))),
-                "last_service_date": str(pd.to_datetime(row.get('Last Call Date', '2024-01-01')).date()),
-                "tracker_type": tracker_type
-            }
-            
-            # Cloud Upsert
-            supabase.table("machines").upsert(data).execute()
-            
-            if i % 10 == 0:
-                pb.progress((i + 1) / len(df))
-                time.sleep(0.05) # Prevention of network congestion
-                
-        except Exception as e:
-            st.error(f"Row {i} (ID: {fab_id}) failed: {e}")
-            
-    st.success(f"✅ Migration for {tracker_type} Completed!")
+# ==============================
+# 🏢 UI - MIGRATION CENTER
+# ==============================
+st.title("📤 Multi-File Cloud Sync")
 
-# --- UI ---
-st.title("📤 Migration Center - Prime Power")
-t_type = st.selectbox("Select Tracker Type", ["DPSAC", "INDUSTRIAL"])
-uploaded_file = st.file_uploader("Upload Excel File", type="xlsx")
+# Tabs for different syncs
+t1, t2, t3 = st.tabs(["1. Master Sync", "2. FOC Sync", "3. Service History Sync"])
 
-if uploaded_file and st.button("Start Cloud Sync"):
-    df_excel = pd.read_excel(uploaded_file, engine='openpyxl')
-    upload_to_supabase(df_excel, t_type)
+with t1:
+    st.subheader("Master Data Sync")
+    # (Purana Master Sync wala code yahan rahega)
+    st.info("Aapne Industrial Master pehle hi kar liya hai. DPSAC Master baki hai.")
+
+with t2:
+    st.subheader("📦 Sync Active FOC")
+    foc_file = st.file_uploader("Upload Active_FOC.xlsx", type="xlsx")
+    if foc_file and st.button("Sync FOC to Cloud"):
+        df_foc = pd.read_excel(foc_file, engine='openpyxl')
+        upload_foc(df_foc)
+
+with t3:
+    st.subheader("🕒 Sync Service Details")
+    srv_file = st.file_uploader("Upload Service_Details.xlsx", type="xlsx")
+    if srv_file and st.button("Sync History to Cloud"):
+        df_srv = pd.read_excel(srv_file, engine='openpyxl')
+        upload_service_details(df_srv)

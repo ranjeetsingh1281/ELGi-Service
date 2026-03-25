@@ -1,183 +1,99 @@
 import streamlit as st
 import pandas as pd
-import os
-from datetime import datetime
+import urllib.parse
+from supabase import create_client, Client
 from io import BytesIO
-from twilio.rest import Client
 
 # ==============================
-# 🔐 ROLE BASED LOGIN
+# 🔐 SUPABASE CONFIG
 # ==============================
-USERS = {
-    "user1": {"pass": "123", "role": "dpsac"},
-    "user2": {"pass": "123", "role": "dpsac"},
-    "user3": {"pass": "123", "role": "dpsac"},
-    "user4": {"pass": "123", "role": "industrial"},
-    "user5": {"pass": "123", "role": "industrial"},
-    "user6": {"pass": "123", "role": "industrial"},
-    "admin1": {"pass": "admin", "role": "admin"},
-    "admin2": {"pass": "admin", "role": "admin"},
-}
+SUPABASE_URL = st.secrets["SUPABASE_URL"] # GitHub Secrets mein daalein
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# ==============================
+# 🔐 LOGIN SYSTEM
+# ==============================
+USER_DB = {"admin": "admin123", "user1": "dpsac123", "user2": "ind123"}
 
 def login():
-    st.title("🔐 ELGi Login")
+    st.title("🔐 ELGi Global - Cloud Edition")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
-
     if st.button("Login"):
-        if u in USERS and USERS[u]["pass"] == p:
-            st.session_state["login"] = True
-            st.session_state["role"] = USERS[u]["role"]
-            st.success("Login Success")
+        if u in USER_DB and USER_DB[u] == p:
+            st.session_state["login"], st.session_state["user"] = True, u
             st.rerun()
-        else:
-            st.error("Invalid Credentials")
+        else: st.error("Invalid Credentials")
 
-if "login" not in st.session_state:
-    st.session_state["login"] = False
-
-if not st.session_state["login"]:
-    login()
-    st.stop()
+if "login" not in st.session_state or not st.session_state["login"]:
+    login(); st.stop()
 
 # ==============================
-# ⚙️ CONFIG
+# ⚙️ HELPERS
 # ==============================
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="ELGi Global Cloud Tracker", layout="wide")
 
-# ==============================
-# 📲 WHATSAPP ALERT
-# ==============================
-def send_whatsapp(msg):
-    try:
-        client = Client("YOUR_SID", "YOUR_TOKEN")
-        client.messages.create(
-            body=msg,
-            from_='whatsapp:+14155238886',
-            to='whatsapp:+91XXXXXXXXXX'
-        )
-    except:
-        pass
-
-# ==============================
-# 📂 FILE UPLOAD SYSTEM
-# ==============================
-st.sidebar.markdown("### 📂 Upload Excel")
-uploaded = st.sidebar.file_uploader("Upload Master File", type=["xlsx"])
-
-def load_data():
-    if uploaded:
-        df = pd.read_excel(uploaded)
-        df.columns = df.columns.str.strip()
-        return df
-    else:
-        st.warning("Upload Excel File")
-        return pd.DataFrame()
-
-df = load_data()
-
-# ==============================
-# 📊 HELPERS
-# ==============================
 def fmt(dt):
-    try:
-        return pd.to_datetime(dt).strftime('%d-%b-%y')
-    except:
-        return "N/A"
+    if not dt or dt == "N/A": return "N/A"
+    return pd.to_datetime(dt).strftime('%d-%b-%y')
 
 def to_excel(df):
-    buffer = BytesIO()
-    df.to_excel(buffer, index=False)
-    return buffer.getvalue()
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
 
 # ==============================
-# 📊 SIDEBAR ACCESS CONTROL
+# 📂 DATA LOADING FROM DB
 # ==============================
-role = st.session_state["role"]
-
-if role == "dpsac":
-    choice = "DPSAC Tracker"
-elif role == "industrial":
-    choice = "INDUSTRIAL Tracker"
-else:
-    choice = st.sidebar.radio("Select Tracker", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
+@st.cache_data(ttl=600) # Refresh every 10 mins
+def fetch_data(tracker_type):
+    res = supabase.table("machines").select("*").eq("tracker_type", tracker_type).execute()
+    return pd.DataFrame(res.data)
 
 # ==============================
-# 📊 DASHBOARD
+# 💎 TRACKER ENGINE
 # ==============================
-def dashboard(df, title):
+def run_tracker(df, name):
+    st.title(f"🛠️ {name} Cloud Tracker")
+    
+    t1, t2 = st.tabs(["Machine Tracker", "⏳ Service Pending"])
+    
+    with t1:
+        colA, colB = st.columns(2)
+        sel_c = colA.selectbox(f"Customer", ["All"] + sorted(df["customer_name"].unique()))
+        df_f = df if sel_c == "All" else df[df["customer_name"] == sel_c]
+        sel_f = colB.selectbox(f"Fabrication Number", ["Select"] + sorted(df_f["fabrication_id"].unique()))
 
-    st.title(title)
+        if sel_f != "Select":
+            row = df_f[df_f["fabrication_id"] == sel_f].iloc[0]
+            m1, m2 = st.columns(2)
+            with m1:
+                st.info("📋 Machine Info")
+                st.write(f"**Cust:** {row['customer_name']}")
+                st.write(f"**Current Hours:** `{row['current_hmr']}` 📟")
+                st.write(f"**Total Hours (DN):** `{row['total_hours_dn']}` 📊")
+                st.write(f"**Last Service:** {fmt(row['last_service_date'])} 📅")
+                
+                # --- UPDATE HMR OPTION (The Power of DB) ---
+                new_hmr = st.number_input("Update Live HMR:", value=float(row['current_hmr']))
+                if st.button("💾 Save to Cloud"):
+                    supabase.table("machines").update({"current_hmr": new_hmr}).eq("fabrication_id", sel_f).execute()
+                    st.success("Cloud Updated! Refreshing...")
+                    st.cache_data.clear()
+                    st.rerun()
 
-    if df.empty:
-        return
+    with t2:
+        st.subheader("⏳ Overdue Machines")
+        # SQL logic can be added here to filter overdue
+        st.dataframe(df, use_container_width=True)
 
-    status_col = next((c for c in df.columns if "status" in c.lower()), None)
-    cust_col = next((c for c in df.columns if "customer" in c.lower()), None)
-    fab_col = next((c for c in df.columns if "fabrication" in c.lower()), None)
-
-    # METRICS
-    if status_col:
-        total = len(df)
-        active = len(df[df[status_col].str.contains("Active", case=False, na=False)])
-        shifted = len(df[df[status_col].str.contains("Shifted", case=False, na=False)])
-        sold = len(df[df[status_col].str.contains("Sold", case=False, na=False)])
-
-        st.metric("Total", total)
-        st.metric("Active", active)
-        st.metric("Shifted", shifted)
-        st.metric("Sold", sold)
-
-        st.sidebar.markdown("### 📊 Summary")
-        st.sidebar.write(f"Total: {total}")
-        st.sidebar.write(f"Active: {active}")
-        st.sidebar.write(f"Shifted: {shifted}")
-        st.sidebar.write(f"Sold: {sold}")
-
-    # ALERT ENGINE
-    overdue = 0
-    for _, row in df.iterrows():
-        try:
-            if row.get("HMR Cal.", 0) > 2000:
-                overdue += 1
-        except:
-            pass
-
-    if overdue > 0:
-        st.error(f"🚨 {overdue} Machines Overdue!")
-        send_whatsapp(f"{overdue} machines overdue!")
-    else:
-        st.success("All Good")
-
-    # FILTER
-    customers = ["All"] + sorted(df[cust_col].astype(str).unique())
-    sel_c = st.selectbox("Customer", customers)
-
-    df_f = df if sel_c == "All" else df[df[cust_col] == sel_c]
-
-    fabs = ["Select"] + sorted(df_f[fab_col].astype(str).unique())
-    sel_f = st.selectbox("Fabrication No", fabs)
-
-    if sel_f != "Select":
-        row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
-
-        st.subheader("Machine Details")
-        st.write(row)
-
-    # REPORT
-    st.download_button("📥 Download Report", to_excel(df), "report.xlsx")
-
-# ==============================
-# RUN
-# ==============================
-if choice == "DPSAC Tracker":
-    dashboard(df, "DPSAC Tracker")
-else:
-    dashboard(df, "Industrial Tracker")
-
-# ==============================
-# LOGOUT
-# ==============================
-if st.sidebar.button("Logout"):
-    st.session_state["login"] = False
-    st.rerun()
+# --- NAVIGATION ---
+nav = st.sidebar.radio("Go to:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"])
+if nav == "DPSAC Tracker": run_tracker(fetch_data("DPSAC"), "DPSAC")
+elif nav == "INDUSTRIAL Tracker": run_tracker(fetch_data("INDUSTRIAL"), "INDUSTRIAL")
+elif nav == "📢 Automation Center":
+    st.title("📢 Broadcast Alerts")
+    if st.button("📱 WhatsApp All Overdue"):
+        st.info("WhatsApp API integration required.")

@@ -122,32 +122,59 @@ def run_tracker(df, name, key_suffix):
             row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
             
             # --- Quick Display ---
-            m1, m2, m3, m4 = st.columns(4)
+          m1, m2, m3, m4 = st.columns(4)
             with m1:
-                st.info("📋 Info")
+                st.info("📋 Basic Info")
                 curr_h = row.get("Current Hours", row.get("CURRENT HMR", row.get("Current HMR", 0)))
                 st.write(f"**Customer:** {row[cust_col]}")
-                st.write(f"**HMR:** `{curr_h}`")
+                st.write(f"**HMR (Current):** `{curr_h}`")
+                st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
                 st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx", key=f"dl_{sel_f}")
             
-            # --- Parts Lookup (Simplified Search) ---
-            parts = ["OIL", "AF", "OF", "AOS", "RGT", "VK"]
-            with m2:
-                st.info("🔧 History")
-                for p in parts:
-                    c = find_col(df, [p, "date"]) or find_col(df, [p, "repl"])
-                    if c: st.write(f"**{p}:** {fmt(row.get(c))}")
-            with m3:
-                st.info("⏳ Remaining")
-                for p in parts:
-                    c = find_col(df, [p, "rem"])
-                    if c: st.write(f"**{p}:** {row.get(c, 'N/A')}")
-            with m4:
-                st.error("🚨 Next Due")
-                for p in parts:
-                    c = find_col(df, [p, "due"])
-                    if c: st.write(f"**{p}:** {fmt(row.get(c))}")
+            # --- Parts Mapping ---
+            if name == "INDUSTRIAL":
+                parts_map = {
+                    "OIL": {"repl": ["MDA Oil R Date"], "rem": ["OIL Rem"], "due": ["Oil R Date"]},
+                    "AF": {"repl": ["MDA AF R Date"], "rem": ["AF Rem"], "due": ["AF R Date"]},
+                    "OF": {"repl": ["MDA OF R Date"], "rem": ["OF Rem"], "due": ["OF R Date"]},
+                    "AOS": {"repl": ["MDA AOS R Date"], "rem": ["AOS Rem"], "due": ["AOS R Date"]},
+                    "RGT": {"repl": ["MDA RGT R Date"], "rem": ["RGT Rem"], "due": ["RGT R Date"]},
+                    "VK": {"repl": ["MDA Valvekit R Date"], "rem": ["VK Rem"], "due": ["Valvekit R Date"]},
+                    "PF": {"repl": ["MDA PF R DATE"], "rem": ["PF Rem"], "due": ["PF R DATE"]},
+                    "FF": {"repl": ["MDA FF R DATE"], "rem": ["FF Rem"], "due": ["FF R DATE"]},
+                    "CF": {"repl": ["MDA CF R DATE"], "rem": ["CF Rem"], "due": ["CF R DATE"]}
+                }
+            else:
+                parts_map = {
+                    "OIL": {"repl": ["oil r date"], "rem": ["oil rem"], "due": ["oil due"]},
+                    "AFC": {"repl": ["afc r date"], "rem": ["afc rem"], "due": ["afc due"]},
+                    "AFE": {"repl": ["afe r date"], "rem": ["afe rem"], "due": ["afe due"]},
+                    "MOF": {"repl": ["mof r date"], "rem": ["mof rem"], "due": ["mof due"]},
+                    "ROF": {"repl": ["rof r date"], "rem": ["rof rem"], "due": ["rof due"]},
+                    "AOS": {"repl": ["aos r date"], "rem": ["aos rem"], "due": ["aos due"]},
+                    "RGT": {"repl": ["rgt r date"], "rem": ["rgt rem"], "due": ["rgt due"]},
+                    "1500": {"repl": ["1500 r date"], "rem": ["1500 rem"], "due": ["1500 due"]},
+                    "3000": {"repl": ["3000 r date"], "rem": ["3000 rem"], "due": ["3000 due"]}
+                }
 
+            with m2:
+                st.info("🔧 History (R Date)")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["repl"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(c))}")
+            with m3:
+                st.info("⏳ Remaining (Hrs)")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["rem"])), None)
+                    val = row.get(c, "N/A")
+                    icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
+                    st.write(f"**{lbl}:** {icon} {val}")
+            with m4:
+                st.error("🚨 Next Due Date")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["due"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(c))}")
+                    
             # --- MACHINE LEVEL FOC & SERVICE HISTORY (Fixed) ---
             st.divider()
             c_foc, c_srv = st.columns(2)

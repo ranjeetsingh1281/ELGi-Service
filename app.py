@@ -40,6 +40,14 @@ def fmt(dt):
         return val.strftime('%d-%b-%y') if val.year > 1970 else "N/A"
     except: return "N/A"
 
+def get_val(row, df_columns, target_name):
+    """Sahi column dhoond kar value nikalne ke liye flexible function"""
+    target = str(target_name).strip().lower()
+    for col in df_columns:
+        if str(col).strip().lower() == target:
+            return row[col]
+    return "N/A"
+
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -76,7 +84,7 @@ if role == "all":
 elif role == "viewer":
     nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
 else:
-    nav = st.sidebar.radio(("DPSAC Tracker" if role == "dpsac" else "INDUSTRIAL Tracker"), ["📢 Automation Center"])
+    nav = st.sidebar.radio("Navigation:", [(f"{role.upper()} Tracker"), "📢 Automation Center"])
 
 if st.sidebar.button("Logout"):
     st.session_state["login"] = False; st.rerun()
@@ -87,11 +95,11 @@ if st.sidebar.button("Logout"):
 def run_tracker(df, name, key_suffix):
     st.title(f"🛠️ {name} Tracker Pro")
     
-    # Static Column Detection
-    cust_col = next((c for c in df.columns if 'Customer' in c), df.columns[0])
-    fab_col = next((c for c in df.columns if 'Fabrication' in c), df.columns[1])
+    # Base columns
+    cust_col = next((c for c in df.columns if 'Customer' in str(c)), df.columns[0])
+    fab_col = next((c for c in df.columns if 'Fabrication' in str(c)), df.columns[1])
     
-    t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC List", "⏳ Service Pending"])
+    t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC List", "⏳ Overdue Service"])
     
     with t1:
         colA, colB = st.columns(2)
@@ -101,6 +109,7 @@ def run_tracker(df, name, key_suffix):
 
         if sel_f != "Select":
             row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
+            cols = df.columns
             
             m1, m2, m3, m4 = st.columns(4)
             with m1:
@@ -111,9 +120,8 @@ def run_tracker(df, name, key_suffix):
                 st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
                 st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx", key=f"dl_{sel_f}")
             
-            # --- 🛠️ EXACT PARTS MAPPING (Jaisa Excel mein hai) ---
+            # --- PARTS MAPPING LOGIC ---
             if name == "INDUSTRIAL":
-                # INDUSTRIAL Exact Headings
                 p_map = {
                     "OIL": {"repl": "MDA Oil R Date", "rem": "OIL Rem. HMR Till date", "due": "Oil R Date"},
                     "AF": {"repl": "MDA AF R Date", "rem": "AF Rem. HMR Till date", "due": "AF R Date"},
@@ -126,64 +134,56 @@ def run_tracker(df, name, key_suffix):
                     "CF": {"repl": "MDA CF R DATE", "rem": "CF Rem", "due": "CF R DATE"}
                 }
             else:
-                # DPSAC Exact Headings (Purana Logic)
                 p_map = {
-                    "OIL": {"repl": "oil r date", "rem": "oil rem", "due": "oil due"},
-                    "AFC": {"repl": "afc r date", "rem": "afc rem", "due": "afc due"},
-                    "AFE": {"repl": "afe r date", "rem": "afe rem", "due": "afe due"},
-                    "MOF": {"repl": "mof r date", "rem": "mof rem", "due": "mof due"},
-                    "ROF": {"repl": "rof r date", "rem": "rof rem", "due": "rof due"},
-                    "AOS": {"repl": "aos r date", "rem": "aos rem", "due": ["aos due", "AOS Due Date"]},
-                    "RGT": {"repl": "rgt r date", "rem": "rgt rem", "due": "rgt due"},
-                    "1500": {"repl": "1500 r date", "rem": "1500 rem", "due": "1500 due"},
-                    "3000": {"repl": "3000 r date", "rem": "3000 rem", "due": "3000 due"}
+                    "OIL": {"repl": "OIL R DATE", "rem": "OIL Rem", "due": "OIL Due Date"},
+                    "AFC": {"repl": "AFC R DATE", "rem": "AFC Rem", "due": "AFC Due Date"},
+                    "AFE": {"repl": "AFE R DATE", "rem": "AFE Rem", "due": "AFE Due Date"},
+                    "MOF": {"repl": "MOF R DATE", "rem": "MOF Rem", "due": "MOF Due Date"},
+                    "ROF": {"repl": "ROF R DATE", "rem": "ROF Rem", "due": "ROF Due Date"},
+                    "AOS": {"repl": "AOS R DATE", "rem": "AOS Rem", "due": "AOS Due Date"},
+                    "RGT": {"repl": "RGT R DATE", "rem": "RGT Rem", "due": "RGT Due Date"},
+                    "1500": {"repl": "1500 R DATE", "rem": "1500 Rem", "due": "1500 Due Date"},
+                    "3000": {"repl": "3000 R DATE", "rem": "3000 Rem", "due": "3000 Due Date"}
                 }
 
             with m2:
                 st.info("🔧 History (R Date)")
                 for lbl, k in p_map.items():
-                    st.write(f"**{lbl}:** {fmt(row.get(k['repl']))}")
+                    st.write(f"**{lbl}:** {fmt(get_val(row, cols, k['repl']))}")
             with m3:
                 st.info("⏳ Remaining (Hrs)")
                 for lbl, k in p_map.items():
-                    val = row.get(k['rem'], "N/A")
+                    val = get_val(row, cols, k['rem'])
                     icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                     st.write(f"**{lbl}:** {icon} {val}")
             with m4:
                 st.error("🚨 Next Due Date")
                 for lbl, k in p_map.items():
-                    # Handle multiple possible due date names for DPSAC if needed
-                    due_val = row.get(k['due']) if isinstance(k['due'], str) else next((row.get(x) for x in k['due'] if x in row), None)
-                    st.write(f"**{lbl}:** {fmt(due_val)}")
+                    st.write(f"**{lbl}:** {fmt(get_val(row, cols, k['due']))}")
 
-            # --- MACHINE LEVEL FOC & HISTORY ---
+            # --- MACHINE LEVEL DEEP LINKS ---
             st.divider()
             c_foc, c_srv = st.columns(2)
             with c_foc:
-                st.subheader(f"🎁 Machine FOC: {sel_f}")
-                if not foc_df.empty:
-                    f_col = next((c for c in foc_df.columns if 'Fabrication' in c), foc_df.columns[0])
+                st.subheader(f"🎁 FOC: {sel_f}")
+                f_col = next((c for c in foc_df.columns if 'Fabrication' in str(c)), None)
+                if f_col:
                     m_foc = foc_df[foc_df[f_col].astype(str).str.strip() == str(sel_f).strip()]
                     st.dataframe(m_foc, use_container_width=True)
             with c_srv:
-                st.subheader(f"🕒 Service History: {sel_f}")
-                if not service_df.empty:
-                    s_col = next((c for c in service_df.columns if 'Fabrication' in c), service_df.columns[0])
+                st.subheader(f"🕒 History: {sel_f}")
+                s_col = next((c for c in service_df.columns if 'Fabrication' in str(c)), None)
+                if s_col:
                     m_srv = service_df[service_df[s_col].astype(str).str.strip() == str(sel_f).strip()]
-                    st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True)
+                    st.dataframe(m_srv, use_container_width=True)
 
     with t2:
-        st.subheader(f"📦 {name} Full FOC List")
-        f_col = next((c for c in foc_df.columns if 'Fabrication' in c), None)
-        if f_col:
-            f_display = foc_df[foc_df[f_col].astype(str).isin(df[fab_col].astype(str))]
-            st.dataframe(f_display, use_container_width=True)
+        f_col = next((c for c in foc_df.columns if 'Fabrication' in str(c)), None)
+        if f_col: st.dataframe(foc_df[foc_df[f_col].astype(str).isin(df[fab_col].astype(str))], use_container_width=True)
 
     with t3:
-        st.subheader(f"⏳ {name} Service Pending")
-        over_col = next((c for c in df.columns if 'Overdue' in c or 'Red' in c), None)
-        if over_col:
-            st.dataframe(df[df[over_col] > 0], use_container_width=True)
+        over_col = next((c for c in df.columns if 'Overdue' in str(c) or 'Red' in str(c)), None)
+        if over_col: st.dataframe(df[df[over_col] > 0], use_container_width=True)
 
 # ==============================
 # 📢 AUTOMATION CENTER
@@ -192,11 +192,13 @@ if nav == "📢 Automation Center":
     st.title("📢 Automation Center")
     col1, col2 = st.columns(2)
     with col1:
-        msg = st.text_area("WA Message:", "ELGi Service Alert: Machine service is overdue.")
+        st.subheader("📱 WhatsApp Broadcast")
+        msg = st.text_area("WA Message:", "ELGi Alert: Machine service is overdue.")
         wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
     with col2:
-        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Attached service report draft."
+        st.subheader("✉️ Email Notification")
+        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Please check report."
         st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
 
 # --- EXECUTION ---

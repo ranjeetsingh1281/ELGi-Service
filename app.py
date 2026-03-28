@@ -12,7 +12,7 @@ USER_DB = {
     "admin": {"pass": "admin123", "role": "all"},
     "user1": {"pass": "dpsac123", "role": "dpsac"},
     "user2": {"pass": "ind123", "role": "industrial"},
-    "user3": {"pass": "view456", "role": "viewer"} # Viewer Only Account
+    "user3": {"pass": "view456", "role": "viewer"}
 }
 
 def login():
@@ -71,7 +71,7 @@ def load_all_data():
 master_df, master_od_df, foc_df, service_df = load_all_data()
 
 # ==============================
-# 🏢 NAVIGATION (Role Based)
+# 🏢 NAVIGATION
 # ==============================
 role = st.session_state["role"]
 st.sidebar.title(f"👋 {st.session_state['user'].upper()}")
@@ -79,7 +79,7 @@ st.sidebar.title(f"👋 {st.session_state['user'].upper()}")
 if role == "all":
     nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"])
 elif role == "viewer":
-    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"]) # Automation Hidden for viewer
+    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
 elif role == "dpsac": nav = "DPSAC Tracker"
 else: nav = "INDUSTRIAL Tracker"
 
@@ -95,9 +95,21 @@ def run_tracker(df, name, key_suffix):
     cust_col = find_col(df, ["customer"])
     fab_col = find_col(df, ["fabrication"])
     overdue_col = find_col(df, ["over", "due"]) or find_col(df, ["red", "count"])
-    crit = df[df[overdue_col] != 0] if overdue_col else pd.DataFrame()
-    
-    t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Overdue Service"])
+    crit = df[df[overdue_col] > 0] if overdue_col in df.columns else pd.DataFrame()
+
+    # 📊 GRAPHS SECTION (Wapas Joda Gaya)
+    with st.expander("📊 Click to View Dashboard Analytics & Graphs", expanded=False):
+        c1, c2 = st.columns(2)
+        sc = find_col(df, ["unit", "status"])
+        if sc: 
+            c1.subheader("Unit Status Distribution")
+            c1.bar_chart(df[sc].value_counts())
+        cc = find_col(df, ["category"])
+        if cc: 
+            c2.subheader("Category Breakdown")
+            c2.bar_chart(df[cc].value_counts())
+
+    t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC List", "⏳ Service Pending"])
     
     with t1:
         colA, colB = st.columns(2)
@@ -115,11 +127,10 @@ def run_tracker(df, name, key_suffix):
                 st.write(f"**Customer:** {row[cust_col]}")
                 st.write(f"**HMR (Current):** `{curr_h}`")
                 st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
-                st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx")
+                st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx", key=f"dl_{sel_f}")
             
-            # --- 🛠️ DYNAMIC PARTS MAPPING (DPSAC vs INDUSTRIAL) ---
+            # --- Parts Mapping ---
             if name == "INDUSTRIAL":
-                # Industrial specific headings
                 parts_map = {
                     "OIL": {"repl": ["MDA Oil R Date"], "rem": ["OIL Rem"], "due": ["Oil R Date"]},
                     "AF": {"repl": ["MDA AF R Date"], "rem": ["AF Rem"], "due": ["AF R Date"]},
@@ -132,7 +143,6 @@ def run_tracker(df, name, key_suffix):
                     "CF": {"repl": ["MDA CF R DATE"], "rem": ["CF Rem"], "due": ["CF R DATE"]}
                 }
             else:
-                # DPSAC specific headings
                 parts_map = {
                     "OIL": {"repl": ["oil r date"], "rem": ["oil rem"], "due": ["oil due"]},
                     "AFC": {"repl": ["afc r date"], "rem": ["afc rem"], "due": ["afc due"]},
@@ -147,50 +157,67 @@ def run_tracker(df, name, key_suffix):
 
             with m2:
                 st.info("🔧 History (R Date)")
-                for lbl, keys in parts_map.items():
-                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["repl"])), None)
-                    st.write(f"**{lbl}:** {fmt(row.get(col))}")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["repl"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(c))}")
             with m3:
                 st.info("⏳ Remaining (Hrs)")
-                for lbl, keys in parts_map.items():
-                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["rem"])), None)
-                    val = row.get(col, "N/A")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["rem"])), None)
+                    val = row.get(c, "N/A")
                     icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                     st.write(f"**{lbl}:** {icon} {val}")
             with m4:
                 st.error("🚨 Next Due Date")
-                for lbl, keys in parts_map.items():
-                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["due"])), None)
-                    st.write(f"**{lbl}:** {fmt(row.get(col))}")
+                for lbl, ks in parts_map.items():
+                    c = next((x for x in df.columns if any(k.lower() in x.lower() for k in ks["due"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(c))}")
 
+            # --- MACHINE LEVEL FOC & HISTORY (Wapas Joda Gaya) ---
             st.divider()
             c_foc, c_srv = st.columns(2)
             with c_foc:
-                st.subheader(f"🎁 FOC: {sel_f}")
-                m_foc = foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str) == sel_f] if not foc_df.empty else pd.DataFrame()
-                st.dataframe(m_foc, use_container_width=True) if not m_foc.empty else st.warning("No FOC")
+                st.subheader(f"🎁 Machine FOC: {sel_f}")
+                foc_fab_col = find_col(foc_df, ["fabrication"])
+                if foc_fab_col:
+                    m_foc = foc_df[foc_df[foc_fab_col].astype(str) == sel_f]
+                    st.dataframe(m_foc, use_container_width=True) if not m_foc.empty else st.warning("No FOC entries")
             with c_srv:
-                st.subheader(f"🕒 History: {sel_f}")
-                m_srv = service_df[service_df[find_col(service_df, ["fabrication"])].astype(str) == sel_f] if not service_df.empty else pd.DataFrame()
-                st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True) if not m_srv.empty else st.warning("No History")
+                st.subheader(f"🕒 Service History: {sel_f}")
+                srv_fab_col = find_col(service_df, ["fabrication"])
+                if srv_fab_col:
+                    m_srv = service_df[service_df[srv_fab_col].astype(str) == sel_f]
+                    st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True) if not m_srv.empty else st.warning("No History")
 
-    with t2: st.dataframe(foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str).isin(df[fab_col].astype(str))], use_container_width=True)
-    with t3: st.dataframe(crit, use_container_width=True)
+    with t2:
+        st.subheader(f"📦 {name} Full FOC List")
+        f_fab_col = find_col(foc_df, ["fabrication"])
+        if f_fab_col:
+            f_display = foc_df[foc_df[f_fab_col].astype(str).isin(df[fab_col].astype(str))]
+            st.dataframe(f_display, use_container_width=True)
+            st.download_button("📥 Download FOC", to_excel(f_display), f"{name}_FOC.xlsx", key=f"foc_all_{key_suffix}")
+
+    with t3:
+        st.subheader(f"⏳ {name} Service Pending")
+        if not crit.empty:
+            st.dataframe(crit, use_container_width=True)
+            st.download_button("📥 Download Pending", to_excel(crit), f"{name}_Pending.xlsx", key=f"crit_all_{key_suffix}")
+        else: st.success("Everything up to date!")
 
 # ==============================
 # 📢 AUTOMATION CENTER
 # ==============================
-if nav == "📢 Automation Center" and role == "all":
+if nav == "📢 Automation Center":
     st.title("📢 Automation Center")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("📱 WhatsApp Broadcast")
-        msg = st.text_area("WA Message:", "ELGi Service Alert: Machine service is overdue.")
+        msg = st.text_area("WA Message:", "ELGi Service Alert: Machine is overdue.")
         wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
         st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
     with col2:
         st.subheader("✉️ Email Notification")
-        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Please check the attached service tracker report."
+        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Please find the attached service report."
         st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
 
 # --- EXECUTION ---

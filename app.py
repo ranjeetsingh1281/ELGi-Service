@@ -6,12 +6,13 @@ from datetime import datetime
 from io import BytesIO
 
 # ==============================
-# 🔐 ROLE-BASED LOGIN SYSTEM
+# 🔐 ROLE-BASED LOGIN SYSTEM (Updated)
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "all"},
     "user1": {"pass": "dpsac123", "role": "dpsac"},
-    "user2": {"pass": "ind123", "role": "industrial"}
+    "user2": {"pass": "ind123", "role": "industrial"},
+    "user3": {"pass": "view456", "role": "viewer"} # <-- Naya Viewer Account
 }
 
 def login():
@@ -70,11 +71,20 @@ def load_all_data():
 master_df, master_od_df, foc_df, service_df = load_all_data()
 
 # ==============================
-# 🏢 NAVIGATION & SIDEBAR
+# 🏢 NAVIGATION (Role Based)
 # ==============================
 role = st.session_state["role"]
 st.sidebar.title(f"👋 {st.session_state['user'].upper()}")
-nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"]) if role == "all" else (nav := "DPSAC Tracker" if role == "dpsac" else "INDUSTRIAL Tracker")
+
+# Role Logic for Navigation
+if role == "all":
+    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"])
+elif role == "viewer":
+    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"]) # Automation hidden
+elif role == "dpsac":
+    nav = "DPSAC Tracker"
+else:
+    nav = "INDUSTRIAL Tracker"
 
 if st.sidebar.button("Logout"):
     st.session_state["login"] = False; st.rerun()
@@ -85,23 +95,10 @@ if st.sidebar.button("Logout"):
 def run_tracker(df, name, key_suffix):
     st.title(f"🛠️ {name} Tracker Pro")
     
-    # Identify Columns
     cust_col = find_col(df, ["customer"])
     fab_col = find_col(df, ["fabrication"])
     overdue_col = find_col(df, ["over", "due"]) or find_col(df, ["red", "count"])
     crit = df[df[overdue_col] != 0] if overdue_col else pd.DataFrame()
-
-    # 📊 GRAPHS SECTION
-    with st.expander("📊 Dashboard Analytics", expanded=False):
-        c1, c2 = st.columns(2)
-        sc = find_col(df, ["unit", "status"])
-        if sc: 
-            c1.subheader("Unit Status")
-            c1.bar_chart(df[sc].value_counts())
-        cc = find_col(df, ["category"])
-        if cc: 
-            c2.subheader("Category")
-            c2.bar_chart(df[cc].value_counts())
 
     t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Overdue Service"])
     
@@ -114,21 +111,18 @@ def run_tracker(df, name, key_suffix):
         if sel_f != "Select":
             row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
             
-            # 📊 MACHINE INFO
             m1, m2, m3, m4 = st.columns(4)
             with m1:
                 st.info("📋 Basic Info")
                 curr_h = row.get("Current Hours", row.get("Current HMR", row.get("CURRENT HMR", 0)))
                 total_h = row.get("Total Hours", row.get("MDA Total Hours", 0))
                 st.write(f"**Customer:** {row[cust_col]}")
-                st.write(f"**Avg Running:** {row.get('Average Running Hours', 'N/A')}")
                 st.write(f"**HMR (Current):** `{curr_h}`")
                 st.write(f"**HMR (Total):** `{total_h}`")
                 st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
                 st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx")
             
-            # 🔧 9 PARTS LOOKUP (DPSAC & INDUSTRIAL BOTH)
-            # Both trackers now look up all 9 critical parts
+            # 9 PARTS LOOKUP (INDUSTRIAL Full Details)
             pm = {
                 "OIL": ["oil"], "AF/AFC": ["af"], "OF/MOF": ["of"], 
                 "AOS": ["aos"], "RGT": ["rgt"], "VK": ["vk"],
@@ -168,29 +162,20 @@ def run_tracker(df, name, key_suffix):
     with t3: st.dataframe(crit, use_container_width=True)
 
 # ==============================
-# 📢 AUTOMATION CENTER (WhatsApp + Email)
+# 📢 AUTOMATION CENTER (Protected)
 # ==============================
-if nav == "📢 Automation Center":
+if nav == "📢 Automation Center" and role == "all":
     st.title("📢 Automation & Notification Center")
-    
     col1, col2 = st.columns(2)
-    
     with col1:
         st.subheader("📱 WhatsApp Broadcast")
-        msg = st.text_area("WA Message:", "ELGi Alert: Machine service is overdue. Please check dashboard.")
+        msg = st.text_area("WA Message:", "ELGi Alert: Machine service is overdue.")
         wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
-
+        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
     with col2:
         st.subheader("✉️ Email Notification")
-        email_to = st.text_input("Receiver Email:", "crm@primepower.in")
-        subject = "Urgent: Overdue Machine Service Report"
-        body = f"Hello Team,\n\nPlease find the attached service tracker report. Some machines are crossing HMR limits.\n\nSent via ELGi Tracker Pro."
-        
-        # Mailto link format
-        mail_link = f"mailto:{email_to}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
-        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
-        st.caption("Note: This will open your default email app (Outlook/Gmail).")
+        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Please find the report attached."
+        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
 
 # --- EXECUTION ---
 if nav == "DPSAC Tracker": run_tracker(master_df, "DPSAC", "DP")

@@ -6,13 +6,13 @@ from datetime import datetime
 from io import BytesIO
 
 # ==============================
-# 🔐 ROLE-BASED LOGIN SYSTEM (Updated)
+# 🔐 ROLE-BASED LOGIN SYSTEM
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "all"},
     "user1": {"pass": "dpsac123", "role": "dpsac"},
     "user2": {"pass": "ind123", "role": "industrial"},
-    "user3": {"pass": "view456", "role": "viewer"} # <-- Naya Viewer Account
+    "user3": {"pass": "view456", "role": "viewer"}
 }
 
 def login():
@@ -76,15 +76,12 @@ master_df, master_od_df, foc_df, service_df = load_all_data()
 role = st.session_state["role"]
 st.sidebar.title(f"👋 {st.session_state['user'].upper()}")
 
-# Role Logic for Navigation
 if role == "all":
     nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker", "📢 Automation Center"])
 elif role == "viewer":
-    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"]) # Automation hidden
-elif role == "dpsac":
-    nav = "DPSAC Tracker"
-else:
-    nav = "INDUSTRIAL Tracker"
+    nav = st.sidebar.radio("Navigation:", ["DPSAC Tracker", "INDUSTRIAL Tracker"])
+elif role == "dpsac": nav = "DPSAC Tracker"
+else: nav = "INDUSTRIAL Tracker"
 
 if st.sidebar.button("Logout"):
     st.session_state["login"] = False; st.rerun()
@@ -97,9 +94,7 @@ def run_tracker(df, name, key_suffix):
     
     cust_col = find_col(df, ["customer"])
     fab_col = find_col(df, ["fabrication"])
-    overdue_col = find_col(df, ["over", "due"]) or find_col(df, ["red", "count"])
-    crit = df[df[overdue_col] != 0] if overdue_col else pd.DataFrame()
-
+    
     t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Overdue Service"])
     
     with t1:
@@ -114,68 +109,66 @@ def run_tracker(df, name, key_suffix):
             m1, m2, m3, m4 = st.columns(4)
             with m1:
                 st.info("📋 Basic Info")
-                curr_h = row.get("Current Hours", row.get("Current HMR", row.get("CURRENT HMR", 0)))
-                total_h = row.get("Total Hours", row.get("MDA Total Hours", 0))
+                curr_h = row.get("Current Hours", row.get("CURRENT HMR", 0))
                 st.write(f"**Customer:** {row[cust_col]}")
                 st.write(f"**HMR (Current):** `{curr_h}`")
-                st.write(f"**HMR (Total):** `{total_h}`")
                 st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
-                st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx")
             
-            # 9 PARTS LOOKUP (INDUSTRIAL Full Details)
-            pm = {
-                "OIL": ["oil"], "AF/AFC": ["af"], "OF/MOF": ["of"], 
-                "AOS": ["aos"], "RGT": ["rgt"], "VK": ["vk"],
-                "1500": ["1500"], "3000": ["3000"], "6000": ["6000"]
+            # 🛠️ INDUSTRIAL SPECIFIC 9 PARTS LOOKUP
+            parts_map = {
+                "OIL": {"repl": ["MDA Oil R Date"], "rem": ["OIL Rem"], "due": ["Oil R Date"]},
+                "AF": {"repl": ["MDA AF R Date"], "rem": ["AF Rem"], "due": ["AF R Date"]},
+                "OF": {"repl": ["MDA OF R Date"], "rem": ["OF Rem"], "due": ["OF R Date"]},
+                "AOS": {"repl": ["MDA AOS R Date"], "rem": ["AOS Rem"], "due": ["AOS R Date"]},
+                "RGT": {"repl": ["MDA RGT R Date"], "rem": ["RGT Rem"], "due": ["RGT R Date"]},
+                "VK": {"repl": ["MDA Valvekit R Date"], "rem": ["VK Rem"], "due": ["Valvekit R Date"]},
+                "PF": {"repl": ["MDA PF R DATE"], "rem": ["PF Rem"], "due": ["PF R DATE"]},
+                "FF": {"repl": ["MDA FF R DATE"], "rem": ["FF Rem"], "due": ["FF R DATE"]},
+                "CF": {"repl": ["MDA CF R DATE"], "rem": ["CF Rem"], "due": ["CF R DATE"]}
             }
 
             with m2:
                 st.info("🔧 History (R Date)")
-                for lbl, ks in pm.items():
-                    c = next((x for x in df.columns if all(k in x.lower() for k in ks) and ("r date" in x.lower() or "repl" in x.lower())), None)
-                    st.write(f"**{lbl}:** {fmt(row.get(c))}")
+                for lbl, keys in parts_map.items():
+                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["repl"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(col))}")
             with m3:
                 st.info("⏳ Remaining (Hrs)")
-                for lbl, ks in pm.items():
-                    rc = next((x for x in df.columns if any(k in x.lower() for k in ks) and "rem" in x.lower()), None)
-                    val = row.get(rc, "N/A")
-                    icon = '🟢' if pd.notna(val) and str(val).replace('.','').isdigit() and float(val)>100 else '🔴'
+                for lbl, keys in parts_map.items():
+                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["rem"])), None)
+                    val = row.get(col, "N/A")
+                    icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                     st.write(f"**{lbl}:** {icon} {val}")
             with m4:
                 st.error("🚨 Next Due Date")
-                for lbl, ks in pm.items():
-                    dc = next((x for x in df.columns if any(k in x.lower() for k in ks) and "due" in x.lower() and "date" in x.lower()), None)
-                    st.write(f"**{lbl}:** {fmt(row.get(dc))}")
+                for lbl, keys in parts_map.items():
+                    col = next((c for c in df.columns if any(k.lower() in c.lower() for k in keys["due"])), None)
+                    st.write(f"**{lbl}:** {fmt(row.get(col))}")
 
             st.divider()
             c_foc, c_srv = st.columns(2)
             with c_foc:
                 st.subheader(f"🎁 FOC: {sel_f}")
                 m_foc = foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str) == sel_f] if not foc_df.empty else pd.DataFrame()
-                st.dataframe(m_foc, use_container_width=True) if not m_foc.empty else st.warning("No FOC")
+                st.dataframe(m_foc, use_container_width=True)
             with c_srv:
                 st.subheader(f"🕒 History: {sel_f}")
                 m_srv = service_df[service_df[find_col(service_df, ["fabrication"])].astype(str) == sel_f] if not service_df.empty else pd.DataFrame()
-                st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True) if not m_srv.empty else st.warning("No History")
-
-    with t2: st.dataframe(foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str).isin(df[fab_col].astype(str))], use_container_width=True)
-    with t3: st.dataframe(crit, use_container_width=True)
+                st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True)
 
 # ==============================
-# 📢 AUTOMATION CENTER (Protected)
+# 📢 AUTOMATION CENTER
 # ==============================
 if nav == "📢 Automation Center" and role == "all":
-    st.title("📢 Automation & Notification Center")
+    st.title("📢 Automation Center")
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("📱 WhatsApp Broadcast")
-        msg = st.text_area("WA Message:", "ELGi Alert: Machine service is overdue.")
+        msg = st.text_area("WA Message:", "ELGi Service Alert!")
         wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer;">📱 WhatsApp</button></a>', unsafe_allow_html=True)
     with col2:
-        st.subheader("✉️ Email Notification")
-        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Please find the report attached."
-        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
+        mail_link = f"mailto:crm@primepower.in?subject=Service Report&body=Check tracker."
+        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer;">✉️ Email Draft</button></a>', unsafe_allow_html=True)
 
 # --- EXECUTION ---
 if nav == "DPSAC Tracker": run_tracker(master_df, "DPSAC", "DP")

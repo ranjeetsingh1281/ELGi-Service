@@ -92,18 +92,18 @@ def run_tracker(df, name, key_suffix):
     crit = df[df[overdue_col] != 0] if overdue_col else pd.DataFrame()
 
     # 📊 GRAPHS SECTION
-    with st.expander("📊 Click to View Dashboard Analytics & Graphs", expanded=False):
+    with st.expander("📊 Dashboard Analytics", expanded=False):
         c1, c2 = st.columns(2)
         sc = find_col(df, ["unit", "status"])
         if sc: 
-            c1.subheader("Unit Status Distribution")
+            c1.subheader("Unit Status")
             c1.bar_chart(df[sc].value_counts())
         cc = find_col(df, ["category"])
         if cc: 
-            c2.subheader("Category Breakdown")
+            c2.subheader("Category")
             c2.bar_chart(df[cc].value_counts())
 
-    t1, t2, t3 = st.tabs(["Machine Tracker", "📦 FOC List (Full)", "⏳ Service Pending (Full)"])
+    t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Overdue Service"])
     
     with t1:
         colA, colB = st.columns(2)
@@ -114,27 +114,26 @@ def run_tracker(df, name, key_suffix):
         if sel_f != "Select":
             row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
             
-            # --- 📊 MACHINE INFO BOX ---
+            # 📊 MACHINE INFO
             m1, m2, m3, m4 = st.columns(4)
             with m1:
-                st.info("📋 Machine Info")
-                if name == "DPSAC":
-                    curr_h = row.get("Current Hours", row.get("Current HMR", 0))
-                    total_h = row.get("Total Hours", row.get("MDA Total Hours", 0))
-                    st.write(f"**Cust:** {row[cust_col]}")
-                    st.write(f"**Avg Running:** {row.get('Average Running Hours', 'N/A')} 🏃")
-                    st.write(f"**Current (AG):** `{curr_h}` 📟")
-                    st.write(f"**Total (DN):** `{total_h}` 📊")
-                    st.write(f"**Difference:** `{float(curr_h)-float(total_h)}` ⚖️")
-                    st.write(f"**Last Call (R):** {fmt(row.get('Last Call Date'))} 📅")
-                else:
-                    st.write(f"**Cust:** {row[cust_col]}")
-                    st.write(f"**Current HMR:** `{row.get('CURRENT HMR', 'N/A')}`")
-                    st.write(f"**Total HMR:** `{row.get('MDA Total Hours', 'N/A')}`")
-                st.download_button("📄 Download This Report", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx", key=f"ex_{sel_f}")
+                st.info("📋 Basic Info")
+                curr_h = row.get("Current Hours", row.get("Current HMR", row.get("CURRENT HMR", 0)))
+                total_h = row.get("Total Hours", row.get("MDA Total Hours", 0))
+                st.write(f"**Customer:** {row[cust_col]}")
+                st.write(f"**Avg Running:** {row.get('Average Running Hours', 'N/A')}")
+                st.write(f"**HMR (Current):** `{curr_h}`")
+                st.write(f"**HMR (Total):** `{total_h}`")
+                st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
+                st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"Report_{sel_f}.xlsx")
             
-            # --- 🔧 9 PARTS LOOKUP ---
-            pm = {"OIL":["oil"],"AF":["af"],"OF":["of"],"AOS":["aos"],"RGT":["rgt"],"VK":["vk"]} if name=="INDUSTRIAL" else {"OIL":["oil"],"AFC":["afc"],"AFE":["afe"],"MOF":["mof"],"ROF":["rof"],"AOS":["aos"],"RGT":["rgt"],"1500":["1500"],"3000":["3000"]}
+            # 🔧 9 PARTS LOOKUP (DPSAC & INDUSTRIAL BOTH)
+            # Both trackers now look up all 9 critical parts
+            pm = {
+                "OIL": ["oil"], "AF/AFC": ["af"], "OF/MOF": ["of"], 
+                "AOS": ["aos"], "RGT": ["rgt"], "VK": ["vk"],
+                "1500": ["1500"], "3000": ["3000"], "6000": ["6000"]
+            }
 
             with m2:
                 st.info("🔧 History (R Date)")
@@ -142,52 +141,57 @@ def run_tracker(df, name, key_suffix):
                     c = next((x for x in df.columns if all(k in x.lower() for k in ks) and ("r date" in x.lower() or "repl" in x.lower())), None)
                     st.write(f"**{lbl}:** {fmt(row.get(c))}")
             with m3:
-                st.info("⏳ Remaining (HMR)")
+                st.info("⏳ Remaining (Hrs)")
                 for lbl, ks in pm.items():
-                    rc = next((x for x in df.columns if ks[0] in x.lower() and "rem" in x.lower()), None)
+                    rc = next((x for x in df.columns if any(k in x.lower() for k in ks) and "rem" in x.lower()), None)
                     val = row.get(rc, "N/A")
                     icon = '🟢' if pd.notna(val) and str(val).replace('.','').isdigit() and float(val)>100 else '🔴'
                     st.write(f"**{lbl}:** {icon} {val}")
             with m4:
-                st.error("🚨 Next Due")
+                st.error("🚨 Next Due Date")
                 for lbl, ks in pm.items():
-                    dc = next((x for x in df.columns if lbl.lower() in x.lower() and "due" in x.lower() and "date" in x.lower()), None)
+                    dc = next((x for x in df.columns if any(k in x.lower() for k in ks) and "due" in x.lower() and "date" in x.lower()), None)
                     st.write(f"**{lbl}:** {fmt(row.get(dc))}")
 
-            # --- 🎁 DEEP LINK: MACHINE FOC & HISTORY ---
             st.divider()
             c_foc, c_srv = st.columns(2)
             with c_foc:
-                st.subheader(f"🎁 Machine FOC: {sel_f}")
+                st.subheader(f"🎁 FOC: {sel_f}")
                 m_foc = foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str) == sel_f] if not foc_df.empty else pd.DataFrame()
-                if not m_foc.empty: st.dataframe(m_foc, use_container_width=True)
-                else: st.warning("No FOC entries found.")
+                st.dataframe(m_foc, use_container_width=True) if not m_foc.empty else st.warning("No FOC")
             with c_srv:
-                st.subheader(f"🕒 Service History: {sel_f}")
+                st.subheader(f"🕒 History: {sel_f}")
                 m_srv = service_df[service_df[find_col(service_df, ["fabrication"])].astype(str) == sel_f] if not service_df.empty else pd.DataFrame()
-                if not m_srv.empty: st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True)
-                else: st.warning("No history found.")
+                st.dataframe(m_srv.sort_values(by=m_srv.columns[0], ascending=False), use_container_width=True) if not m_srv.empty else st.warning("No History")
 
-    with t2: # --- FULL FOC LIST ---
-        st.subheader(f"📦 {name} All FOC List")
-        f_fab_col = find_col(foc_df, ["fabrication"])
-        if f_fab_col:
-            f_display = foc_df[foc_df[f_fab_col].astype(str).isin(df[fab_col].astype(str))]
-            st.download_button(f"📥 Export FOC List", to_excel(f_display), f"{name}_FOC.xlsx", key=f"fex_{key_suffix}")
-            st.dataframe(f_display, use_container_width=True)
+    with t2: st.dataframe(foc_df[foc_df[find_col(foc_df, ["fabrication"])].astype(str).isin(df[fab_col].astype(str))], use_container_width=True)
+    with t3: st.dataframe(crit, use_container_width=True)
 
-    with t3: # --- SERVICE PENDING ---
-        st.subheader(f"⏳ {name} All Service Pending")
-        if not crit.empty:
-            st.download_button(f"📥 Export Pending List", to_excel(crit), f"{name}_Pending.xlsx", key=f"pex_{key_suffix}")
-            st.dataframe(crit, use_container_width=True)
-        else: st.success("No service pending!")
+# ==============================
+# 📢 AUTOMATION CENTER (WhatsApp + Email)
+# ==============================
+if nav == "📢 Automation Center":
+    st.title("📢 Automation & Notification Center")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📱 WhatsApp Broadcast")
+        msg = st.text_area("WA Message:", "ELGi Alert: Machine service is overdue. Please check dashboard.")
+        wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
+
+    with col2:
+        st.subheader("✉️ Email Notification")
+        email_to = st.text_input("Receiver Email:", "crm@primepower.in")
+        subject = "Urgent: Overdue Machine Service Report"
+        body = f"Hello Team,\n\nPlease find the attached service tracker report. Some machines are crossing HMR limits.\n\nSent via ELGi Tracker Pro."
+        
+        # Mailto link format
+        mail_link = f"mailto:{email_to}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
+        st.caption("Note: This will open your default email app (Outlook/Gmail).")
 
 # --- EXECUTION ---
 if nav == "DPSAC Tracker": run_tracker(master_df, "DPSAC", "DP")
 elif nav == "INDUSTRIAL Tracker": run_tracker(master_od_df, "INDUSTRIAL", "IN")
-elif nav == "📢 Automation Center":
-    st.title("📢 Automation Center")
-    msg = st.text_area("Broadcast Message:", "Report Update: Service alert for overdue ELGi machines.")
-    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:10px; border:none; border-radius:5px; width:100%; cursor:pointer;">📱 Send WhatsApp Broadcast</button></a>', unsafe_allow_html=True)

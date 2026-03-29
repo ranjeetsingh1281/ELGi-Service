@@ -8,9 +8,9 @@ from io import BytesIO
 # 🔐 LOGIN SYSTEM (DPSAC)
 # ==============================
 USER_DB = {
-    "admin": "admin123",
-    "dpsac_user": "dpsac123",
-    "viewer": "view456"
+    "admin": {"pass": "admin123", "role": "all"},
+    "user1": {"pass": "dpsac123", "role": "dpsac"},
+    "user3": {"pass": "view456", "role": "viewer"}
 }
 
 def login():
@@ -18,18 +18,18 @@ def login():
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
     if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
-            st.session_state["dpsac_login"] = True
+        if u in USER_DB and USER_DB[u]["pass"] == p:
+            st.session_state["d_login"], st.session_state["d_role"], st.session_state["d_user"] = True, USER_DB[u]["role"], u
             st.rerun()
         else: st.error("Invalid Credentials")
 
-if "dpsac_login" not in st.session_state:
+if "d_login" not in st.session_state:
     login(); st.stop()
 
 # ==============================
-# ⚙️ HELPERS
+# ⚙️ CONFIG & HELPERS
 # ==============================
-st.set_page_config(page_title="ELGi DPSAC Tracker Pro", layout="wide")
+st.set_page_config(page_title="ELGi DPSAC Tracker", layout="wide")
 
 def fmt(dt):
     if pd.isna(dt) or dt == 0 or str(dt).lower() in ["nan", "nat"]: return "N/A"
@@ -38,11 +38,11 @@ def fmt(dt):
         return val.strftime('%d-%b-%y') if val.year > 1970 else "N/A"
     except: return "N/A"
 
-def get_val(row, df_columns, target_name):
-    target = str(target_name).strip().lower()
-    for col in df_columns:
-        if str(col).strip().lower() == target: return row[col]
-    return "N/A"
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
 
 # ==============================
 # 📂 DATA LOADING
@@ -60,15 +60,23 @@ def load_data():
 master, foc, service = load_data()
 
 # ==============================
-# 💎 DPSAC SEARCH ENGINE
+# 💎 MAIN ENGINE
 # ==============================
-st.title("🛠️ DPSAC Tracker Pro")
-cust_col = next((c for c in master.columns if 'Customer' in str(c)), master.columns[0])
-fab_col = next((c for c in master.columns if 'Fabrication' in str(c)), master.columns[1])
+st.title("🛠️ DPSAC Service Tracker Pro")
+role = st.session_state["d_role"]
 
-t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Service Pending"])
+# Sidebar
+if st.sidebar.button("Logout"):
+    st.session_state.clear(); st.rerun()
 
-with t1:
+nav = ["Machine Search", "📦 Full FOC", "⏳ Overdue Service"]
+if role != "viewer": nav.append("📢 Automation Center")
+choice = st.sidebar.radio("Navigation:", nav)
+
+if choice == "Machine Search":
+    cust_col = next((c for c in master.columns if 'Customer' in c), master.columns[0])
+    fab_col = next((c for c in master.columns if 'Fabrication' in c), master.columns[1])
+    
     colA, colB = st.columns(2)
     sel_c = colA.selectbox("Select Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
     df_f = master if sel_c == "All" else master[master[cust_col] == sel_c]
@@ -76,43 +84,50 @@ with t1:
 
     if sel_f != "Select":
         row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
-        cols = master.columns
-        
         m1, m2, m3, m4 = st.columns(4)
+        
         with m1:
-            st.info("📋 Info")
+            st.info("📋 Basic Info")
             st.write(f"**Customer:** {row[cust_col]}")
-            st.write(f"**HMR:** `{row.get('Current Hours', row.get('Current HMR', 0))}`")
+            st.write(f"**Current HMR:** `{row.get('Current Hours', row.get('Current HMR', 0))}`")
             st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
+            st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"DPSAC_{sel_f}.xlsx")
 
-        # DPSAC Specific Parts
         p_map = {
-            "OIL": {"repl": "OIL R DATE", "rem": "OIL Rem", "due": "OIL Due Date"},
-            "AFC": {"repl": "AFC R DATE", "rem": "AFC Rem", "due": "AFC Due Date"},
-            "AFE": {"repl": "AFE R DATE", "rem": "AFE Rem", "due": "AFE Due Date"},
-            "MOF": {"repl": "MOF R DATE", "rem": "MOF Rem", "due": "MOF Due Date"},
-            "ROF": {"repl": "ROF R DATE", "rem": "ROF Rem", "due": "ROF Due Date"},
-            "AOS": {"repl": "AOS R DATE", "rem": "AOS Rem", "due": "AOS Due Date"},
-            "RGT": {"repl": "RGT R DATE", "rem": "RGT Rem", "due": "RGT Due Date"},
-            "1500": {"repl": "1500 R DATE", "rem": "1500 Rem", "due": "1500 Due Date"},
-            "3000": {"repl": "3000 R DATE", "rem": "3000 Rem", "due": "3000 Due Date"}
+            "OIL": {"repl": "oil r date", "rem": "oil rem", "due": "oil due"},
+            "AFC": {"repl": "afc r date", "rem": "afc rem", "due": "afc due"},
+            "AFE": {"repl": "afe r date", "rem": "afe rem", "due": "afe due"},
+            "MOF": {"repl": "mof r date", "rem": "mof rem", "due": "mof due"},
+            "ROF": {"repl": "rof r date", "rem": "rof rem", "due": "rof due"},
+            "AOS": {"repl": "aos r date", "rem": "aos rem", "due": "aos due"},
+            "RGT": {"repl": "rgt r date", "rem": "rgt rem", "due": "rgt due"},
+            "1500": {"repl": "1500 r date", "rem": "1500 rem", "due": "1500 due"},
+            "3000": {"repl": "3000 r date", "rem": "3000 rem", "due": "3000 due"}
         }
 
         with m2:
-            st.info("🔧 History")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_val(row, cols, k['repl']))}")
+            st.info("🔧 History (R Date)")
+            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['repl']))}")
         with m3:
-            st.info("⏳ Remaining")
+            st.info("⏳ Remaining (Hrs)")
             for lbl, k in p_map.items():
-                val = get_val(row, cols, k['rem'])
+                val = row.get(k['rem'], "N/A")
                 icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                 st.write(f"**{lbl}:** {icon} {val}")
         with m4:
-            st.error("🚨 Due Date")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_val(row, cols, k['due']))}")
+            st.error("🚨 Next Due Date")
+            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['due']))}")
 
         st.divider()
-        # History & FOC
         c1, c2 = st.columns(2)
-        with c1: st.subheader("🎁 FOC"); st.dataframe(foc[foc[next(iter(foc.columns))].astype(str) == sel_f])
-        with c2: st.subheader("🕒 History"); st.dataframe(service[service[next(iter(service.columns))].astype(str) == sel_f])
+        with c1: st.subheader("🎁 Machine FOC"); st.dataframe(foc[foc[next(iter(foc.columns))].astype(str) == sel_f])
+        with c2: st.subheader("🕒 Service History"); st.dataframe(service[service[next(iter(service.columns))].astype(str) == sel_f])
+
+elif choice == "📦 Full FOC": st.dataframe(foc)
+elif choice == "⏳ Overdue Service":
+    over_col = next((c for c in master.columns if 'Overdue' in c or 'Red' in c), None)
+    if over_col: st.dataframe(master[master[over_col] > 0])
+elif choice == "📢 Automation Center":
+    msg = st.text_area("WA Message:", "ELGi DPSAC Alert!")
+    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer;">📱 WhatsApp</button></a>', unsafe_allow_html=True)

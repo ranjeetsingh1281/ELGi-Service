@@ -2,29 +2,34 @@ import streamlit as st
 import pandas as pd
 import os
 import urllib.parse
+from io import BytesIO
 
 # ==============================
 # 🔐 LOGIN SYSTEM (INDUSTRIAL)
 # ==============================
-USER_DB = {"admin": "admin123", "ind_user": "ind123", "viewer": "view456"}
+USER_DB = {
+    "admin": {"pass": "admin123", "role": "all"},
+    "user2": {"pass": "ind123", "role": "industrial"},
+    "user3": {"pass": "view456", "role": "viewer"}
+}
 
 def login():
     st.title("🏗️ ELGi INDUSTRIAL Tracker Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
     if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
-            st.session_state["ind_login"] = True
+        if u in USER_DB and USER_DB[u]["pass"] == p:
+            st.session_state["i_login"], st.session_state["i_role"] = True, USER_DB[u]["role"]
             st.rerun()
         else: st.error("Invalid Credentials")
 
-if "ind_login" not in st.session_state:
+if "i_login" not in st.session_state:
     login(); st.stop()
 
 # ==============================
 # ⚙️ HELPERS
 # ==============================
-st.set_page_config(page_title="ELGi Industrial Tracker Pro", layout="wide")
+st.set_page_config(page_title="ELGi Industrial Tracker", layout="wide")
 
 def fmt(dt):
     if pd.isna(dt) or dt == 0 or str(dt).lower() in ["nan", "nat"]: return "N/A"
@@ -52,28 +57,34 @@ master, foc, service = load_data()
 # 💎 INDUSTRIAL ENGINE
 # ==============================
 st.title("🛠️ INDUSTRIAL Tracker Pro")
-cust_col = next((c for c in master.columns if 'Customer' in str(c)), master.columns[0])
-fab_col = next((c for c in master.columns if 'Fabrication' in str(c)), master.columns[1])
+role = st.session_state["i_role"]
 
-t1, t2, t3 = st.tabs(["Machine Search", "📦 Full FOC", "⏳ Service Overdue"])
+if st.sidebar.button("Logout"):
+    st.session_state.clear(); st.rerun()
 
-with t1:
-    colA, colB = st.columns(2)
-    sel_c = colA.selectbox("Select Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
+nav = ["Machine Search", "📦 Full FOC", "⏳ Overdue Service"]
+if role != "viewer": nav.append("📢 Automation Center")
+choice = st.sidebar.radio("Navigation:", nav)
+
+if choice == "Machine Search":
+    cust_col = next((c for c in master.columns if 'Customer' in c), master.columns[0])
+    fab_col = next((c for c in master.columns if 'Fabrication' in c), master.columns[1])
+    
+    col1, col2 = st.columns(2)
+    sel_c = col1.selectbox("Select Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
     df_f = master if sel_c == "All" else master[master[cust_col] == sel_c]
-    sel_f = colB.selectbox("Select Fabrication Number", ["Select"] + sorted(df_f[fab_col].astype(str).unique()))
+    sel_f = col2.selectbox("Select Fabrication Number", ["Select"] + sorted(df_f[fab_col].astype(str).unique()))
 
     if sel_f != "Select":
         row = df_f[df_f[fab_col].astype(str) == sel_f].iloc[0]
-        
         m1, m2, m3, m4 = st.columns(4)
+        
         with m1:
             st.info("📋 Basic Info")
             st.write(f"**Customer:** {row[cust_col]}")
             st.write(f"**Current HMR:** `{row.get('CURRENT HMR', 0)}`")
             st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
 
-        # INDUSTRIAL Exact Parts (MDA Mapping)
         p_map = {
             "OIL": {"repl": "MDA Oil R Date", "rem": "OIL Rem. HMR Till date", "due": "Oil R Date"},
             "AF": {"repl": "MDA AF R Date", "rem": "AF Rem. HMR Till date", "due": "AF R Date"},
@@ -87,20 +98,27 @@ with t1:
         }
 
         with m2:
-            st.info("🔧 History")
+            st.info("🔧 History (R Date)")
             for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['repl']))}")
         with m3:
-            st.info("⏳ Remaining")
+            st.info("⏳ Remaining (Hrs)")
             for lbl, k in p_map.items():
                 val = row.get(k['rem'], "N/A")
                 icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                 st.write(f"**{lbl}:** {icon} {val}")
         with m4:
-            st.error("🚨 Due Date")
+            st.error("🚨 Next Due Date")
             for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['due']))}")
 
         st.divider()
-        # History & FOC Section
         c1, c2 = st.columns(2)
         with c1: st.subheader("🎁 FOC"); st.dataframe(foc[foc[next(iter(foc.columns))].astype(str) == sel_f])
         with c2: st.subheader("🕒 History"); st.dataframe(service[service[next(iter(service.columns))].astype(str) == sel_f])
+
+elif choice == "📦 Full FOC": st.dataframe(foc)
+elif choice == "⏳ Overdue Service":
+    over_col = next((c for c in master.columns if 'Overdue' in c or 'Red' in c), None)
+    if over_col: st.dataframe(master[master[over_col] > 0])
+elif choice == "📢 Automation Center":
+    mail_link = f"mailto:crm@primepower.in?subject=Industrial Report&body=Check service pending list."
+    st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)

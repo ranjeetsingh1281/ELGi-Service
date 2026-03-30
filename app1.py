@@ -6,7 +6,7 @@ from datetime import datetime
 from io import BytesIO
 
 # ==============================
-# 🔐 LOGIN SYSTEM
+# 🔐 ROLE-BASED LOGIN SYSTEM
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "all"},
@@ -37,13 +37,12 @@ def fmt(dt):
         return val.strftime('%d-%b-%y') if val.year > 1970 else "N/A"
     except: return "N/A"
 
-def get_col_val(row, target):
-    """Deep search for column values - ignores spaces and case"""
-    target = str(target).strip().lower()
-    for actual_col in row.index:
-        clean_col = str(actual_col).strip().lower()
-        if clean_col == target:
-            return row[actual_col]
+def smart_get(row, keywords):
+    """Keywords ke basis par column dhoondne ka sabse powerful tarika"""
+    for col in row.index:
+        col_clean = str(col).strip().lower()
+        if all(k.lower() in col_clean for k in keywords):
+            return row[col]
     return "N/A"
 
 @st.cache_data
@@ -75,14 +74,14 @@ if st.sidebar.button("Logout"):
 # ==============================
 # 💎 MACHINE SEARCH
 # ==============================
-if master.empty:
-    st.error("🚨 Master_Data.xlsx nahi mili!")
-    st.stop()
-
-cust_col = next((c for c in master.columns if 'customer' in str(c).lower()), master.columns[0])
-fab_col = next((c for c in master.columns if 'fabrication' in str(c).lower()), master.columns[1])
-
 if choice == "Machine Search":
+    if master.empty:
+        st.error("🚨 Master_Data.xlsx load nahi ho saki!")
+        st.stop()
+
+    cust_col = next((c for c in master.columns if 'customer' in str(c).lower()), master.columns[0])
+    fab_col = next((c for c in master.columns if 'fabrication' in str(c).lower()), master.columns[1])
+
     st.title("🛠️ DPSAC Machine Tracker")
     colA, colB = st.columns(2)
     sel_c = colA.selectbox("Select Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
@@ -95,39 +94,33 @@ if choice == "Machine Search":
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             st.info("📋 Basic Info")
-            h_val = get_col_val(row, "Current HMR") if get_col_val(row, "Current HMR") != "N/A" else get_col_val(row, "Current Hours")
+            hmr = smart_get(row, ["current", "hmr"])
+            if hmr == "N/A": hmr = smart_get(row, ["current", "hours"])
             st.write(f"**Customer:** {row[cust_col]}")
-            st.write(f"**HMR (Current):** `{h_val}`")
-            st.write(f"**Last Call:** {fmt(get_col_val(row, 'Last Call Date'))}")
+            st.write(f"**HMR (Current):** `{hmr}`")
+            st.write(f"**Last Call:** {fmt(smart_get(row, ['last', 'call']))}")
 
-        # --- Exact Parts Logic for DPSAC ---
-        # Note: 'rem' keys match your "OIL Rem", "AFC Rem" format
-        p_map = {
-            "OIL": {"repl": "OIL R DATE", "rem": "OIL Rem", "due": "OIL Due Date"},
-            "AFC": {"repl": "AFC R DATE", "rem": "AFC Rem", "due": "AFC Due Date"},
-            "AFE": {"repl": "AFE R DATE", "rem": "AFE Rem", "due": "AFE Due Date"},
-            "MOF": {"repl": "MOF R DATE", "rem": "MOF Rem", "due": "MOF Due Date"},
-            "ROF": {"repl": "ROF R DATE", "rem": "ROF Rem", "due": "ROF Due Date"},
-            "AOS": {"repl": "AOS R DATE", "rem": "AOS Rem", "due": "AOS Due Date"},
-            "RGT": {"repl": "RGT R DATE", "rem": "RGT Rem", "due": "RGT Due Date"},
-            "1500": {"repl": "1500 R DATE", "rem": "1500 Rem", "due": "1500 Due Date"},
-            "3000": {"repl": "3000 R DATE", "rem": "3000 Rem", "due": "3000 Due Date"}
-        }
-
+        # --- SMART PARTS LOOKUP ---
+        parts = ["OIL", "AFC", "AFE", "MOF", "ROF", "AOS", "RGT", "1500", "3000"]
+        
         with m2:
             st.info("🔧 History (R Date)")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_col_val(row, k['repl']))}")
+            for p in parts:
+                st.write(f"**{p}:** {fmt(smart_get(row, [p, 'date']))}")
+        
         with m3:
             st.info("⏳ Remaining (Hrs)")
-            for lbl, k in p_map.items():
-                val = get_col_val(row, k['rem'])
+            for p in parts:
+                val = smart_get(row, [p, 'rem'])
                 icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
-                st.write(f"**{lbl}:** {icon} {val}")
+                st.write(f"**{p}:** {icon} {val}")
+        
         with m4:
             st.error("🚨 Next Due Date")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_col_val(row, k['due']))}")
+            for p in parts:
+                st.write(f"**{p}:** {fmt(smart_get(row, [p, 'due']))}")
 
-        # Machine level details
+        # Machine level FOC & History
         st.divider()
         c_f, c_s = st.columns(2)
         with c_f:
@@ -144,17 +137,18 @@ if choice == "Machine Search":
 # ==============================
 elif choice == "📢 Automation Center":
     st.title("📢 Automation Center")
-    st.subheader("📱 WhatsApp Broadcast")
-    msg = st.text_area("Message:", "ELGi Service Alert: Machine service is overdue.")
-    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
-    
-    st.divider()
-    st.subheader("✉️ Email Draft")
-    mail_link = "mailto:crm@primepower.in?subject=Service Alert&body=Check tracker for overdue machines."
-    st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("📱 WhatsApp Broadcast")
+        msg = st.text_area("Message:", "ELGi Service Alert: Machine service is overdue.")
+        wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
+    with c2:
+        st.subheader("✉️ Email Draft")
+        mail_link = "mailto:crm@primepower.in?subject=Service Alert&body=Check tracker for overdue machines."
+        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
 
-# Other Tabs
+# Full Tables
 elif choice == "📦 Full FOC List":
     st.dataframe(foc, use_container_width=True)
 elif choice == "⏳ Overdue Service":

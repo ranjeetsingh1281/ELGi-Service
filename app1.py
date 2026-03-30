@@ -38,46 +38,47 @@ def fmt(dt):
     except: return "N/A"
 
 def get_col_val(row, target):
-    """Sahi column dhoond kar value nikalne ke liye flexible function"""
+    """Deep search for column values - ignores spaces and case"""
     target = str(target).strip().lower()
     for actual_col in row.index:
-        if str(actual_col).strip().lower() == target:
+        clean_col = str(actual_col).strip().lower()
+        if clean_col == target:
             return row[actual_col]
     return "N/A"
 
 @st.cache_data
 def load_data():
     try:
-        # File names MUST match exactly on GitHub
         m = pd.read_excel("Master_Data.xlsx", engine='openpyxl')
         f = pd.read_excel("Active_FOC.xlsx", engine='openpyxl')
         s = pd.read_excel("Service_Details.xlsx", engine='openpyxl')
         return m, f, s
     except Exception as e:
-        st.error(f"File Error: {e}")
+        st.error(f"File Load Error: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 master, foc, service = load_data()
 
 # ==============================
-# 💎 NAVIGATION
+# 🏢 NAVIGATION
 # ==============================
 st.sidebar.title(f"👋 {st.session_state['d_user'].upper()}")
-nav = ["Machine Search", "📦 Full FOC List", "⏳ Overdue Service"]
-if st.session_state["d_role"] != "viewer": nav.append("📢 Automation Center")
-choice = st.sidebar.radio("Navigation:", nav)
+nav_list = ["Machine Search", "📦 Full FOC List", "⏳ Overdue Service", "📢 Automation Center"]
+if st.session_state["d_role"] == "viewer":
+    nav_list.remove("📢 Automation Center")
+
+choice = st.sidebar.radio("Navigation:", nav_list)
 
 if st.sidebar.button("Logout"):
     st.session_state.clear(); st.rerun()
 
 # ==============================
-# 💎 MAIN CONTENT
+# 💎 MACHINE SEARCH
 # ==============================
 if master.empty:
-    st.error("🚨 Master_Data.xlsx load nahi ho saki! GitHub check karein.")
+    st.error("🚨 Master_Data.xlsx nahi mili!")
     st.stop()
 
-# Flexible Column Detection
 cust_col = next((c for c in master.columns if 'customer' in str(c).lower()), master.columns[0])
 fab_col = next((c for c in master.columns if 'fabrication' in str(c).lower()), master.columns[1])
 
@@ -94,12 +95,13 @@ if choice == "Machine Search":
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             st.info("📋 Basic Info")
-            h_val = get_col_val(row, "Current Hours") if get_col_val(row, "Current Hours") != "N/A" else get_col_val(row, "Current HMR")
+            h_val = get_col_val(row, "Current HMR") if get_col_val(row, "Current HMR") != "N/A" else get_col_val(row, "Current Hours")
             st.write(f"**Customer:** {row[cust_col]}")
             st.write(f"**HMR (Current):** `{h_val}`")
             st.write(f"**Last Call:** {fmt(get_col_val(row, 'Last Call Date'))}")
 
-        # Parts mapping (Exact Column Match)
+        # --- Exact Parts Logic for DPSAC ---
+        # Note: 'rem' keys match your "OIL Rem", "AFC Rem" format
         p_map = {
             "OIL": {"repl": "OIL R DATE", "rem": "OIL Rem", "due": "OIL Due Date"},
             "AFC": {"repl": "AFC R DATE", "rem": "AFC Rem", "due": "AFC Due Date"},
@@ -125,27 +127,36 @@ if choice == "Machine Search":
             st.error("🚨 Next Due Date")
             for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_col_val(row, k['due']))}")
 
-        # --- MACHINE LEVEL FOC & HISTORY ---
+        # Machine level details
         st.divider()
         c_f, c_s = st.columns(2)
         with c_f:
             st.subheader("🎁 Machine FOC")
-            f_fab_col = next((c for c in foc.columns if 'fabrication' in str(c).lower()), None)
-            if f_fab_col:
-                res_foc = foc[foc[f_fab_col].astype(str) == str(sel_f)]
-                st.dataframe(res_foc, use_container_width=True) if not res_foc.empty else st.warning("No FOC entries.")
+            f_fab = next((c for c in foc.columns if 'fabrication' in str(c).lower()), foc.columns[0])
+            st.dataframe(foc[foc[f_fab].astype(str) == str(sel_f)], use_container_width=True)
         with c_s:
             st.subheader("🕒 Service History")
-            s_fab_col = next((c for c in service.columns if 'fabrication' in str(c).lower()), None)
-            if s_fab_col:
-                res_srv = service[service[s_fab_col].astype(str) == str(sel_f)]
-                st.dataframe(res_srv, use_container_width=True) if not res_srv.empty else st.warning("No history entries.")
+            s_fab = next((c for c in service.columns if 'fabrication' in str(c).lower()), service.columns[0])
+            st.dataframe(service[service[s_fab].astype(str) == str(sel_f)], use_container_width=True)
 
+# ==============================
+# 📢 AUTOMATION CENTER (Fixed)
+# ==============================
+elif choice == "📢 Automation Center":
+    st.title("📢 Automation Center")
+    st.subheader("📱 WhatsApp Broadcast")
+    msg = st.text_area("Message:", "ELGi Service Alert: Machine service is overdue.")
+    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
+    
+    st.divider()
+    st.subheader("✉️ Email Draft")
+    mail_link = "mailto:crm@primepower.in?subject=Service Alert&body=Check tracker for overdue machines."
+    st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
+
+# Other Tabs
 elif choice == "📦 Full FOC List":
     st.dataframe(foc, use_container_width=True)
-
 elif choice == "⏳ Overdue Service":
-    over_c = next((c for c in master.columns if 'overdue' in str(c).lower() or 'red' in str(c).lower()), None)
-    if over_c:
-        st.dataframe(master[master[over_c] > 0], use_container_width=True)
-    else: st.warning("Overdue column nahi mila.")
+    over_c = next((c for c in master.columns if 'overdue' in str(c).lower()), master.columns[-1])
+    st.dataframe(master[master[over_c] > 0], use_container_width=True)

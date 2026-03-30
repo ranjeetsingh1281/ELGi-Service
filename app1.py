@@ -104,4 +104,4 @@ if master.empty:
 
 # Auto-detect critical columns
 cust_col = next((c for c in master.columns if 'Customer' in str(c)), master.columns[0])
-fab_col = next((c for
+fab_col = next((c for c in master.columns if 'Fabrication' in str(c)), master.columns[1])

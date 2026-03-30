@@ -37,26 +37,30 @@ def fmt(dt):
         return val.strftime('%d-%b-%y') if val.year > 1970 else "N/A"
     except: return "N/A"
 
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
+def get_col_val(row, target):
+    """Sahi column dhoond kar value nikalne ke liye flexible function"""
+    target = str(target).strip().lower()
+    for actual_col in row.index:
+        if str(actual_col).strip().lower() == target:
+            return row[actual_col]
+    return "N/A"
 
 @st.cache_data
 def load_data():
     try:
+        # File names MUST match exactly on GitHub
         m = pd.read_excel("Master_Data.xlsx", engine='openpyxl')
         f = pd.read_excel("Active_FOC.xlsx", engine='openpyxl')
         s = pd.read_excel("Service_Details.xlsx", engine='openpyxl')
-        for d in [m, f, s]: d.columns = [str(c).strip() for c in d.columns]
         return m, f, s
-    except: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    except Exception as e:
+        st.error(f"File Error: {e}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 master, foc, service = load_data()
 
 # ==============================
-# 🏢 SIDEBAR
+# 💎 NAVIGATION
 # ==============================
 st.sidebar.title(f"👋 {st.session_state['d_user'].upper()}")
 nav = ["Machine Search", "📦 Full FOC List", "⏳ Overdue Service"]
@@ -70,11 +74,12 @@ if st.sidebar.button("Logout"):
 # 💎 MAIN CONTENT
 # ==============================
 if master.empty:
-    st.error("🚨 Master_Data.xlsx load nahi ho saki!")
+    st.error("🚨 Master_Data.xlsx load nahi ho saki! GitHub check karein.")
     st.stop()
 
-cust_col = next((c for c in master.columns if 'Customer' in str(c)), master.columns[0])
-fab_col = next((c for c in master.columns if 'Fabrication' in str(c)), master.columns[1])
+# Flexible Column Detection
+cust_col = next((c for c in master.columns if 'customer' in str(c).lower()), master.columns[0])
+fab_col = next((c for c in master.columns if 'fabrication' in str(c).lower()), master.columns[1])
 
 if choice == "Machine Search":
     st.title("🛠️ DPSAC Machine Tracker")
@@ -86,68 +91,61 @@ if choice == "Machine Search":
     if sel_f != "Select":
         row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
         
-        # --- 4 COLUMN PROFESSIONAL GRID ---
         m1, m2, m3, m4 = st.columns(4)
-        
         with m1:
             st.info("📋 Basic Info")
-            curr_h = row.get("Current Hours", row.get("Current HMR", 0))
+            h_val = get_col_val(row, "Current Hours") if get_col_val(row, "Current Hours") != "N/A" else get_col_val(row, "Current HMR")
             st.write(f"**Customer:** {row[cust_col]}")
-            st.write(f"**HMR (Current):** `{curr_h}`")
-            st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
-            st.download_button("📄 Export Row", to_excel(pd.DataFrame([row])), f"DPSAC_{sel_f}.xlsx")
+            st.write(f"**HMR (Current):** `{h_val}`")
+            st.write(f"**Last Call:** {fmt(get_col_val(row, 'Last Call Date'))}")
 
-        # Parts mapping for DPSAC
+        # Parts mapping (Exact Column Match)
         p_map = {
-            "OIL": {"repl": "oil r date", "rem": "oil rem", "due": "oil due"},
-            "AFC": {"repl": "afc r date", "rem": "afc rem", "due": "afc due"},
-            "AFE": {"repl": "afe r date", "rem": "afe rem", "due": "afe due"},
-            "MOF": {"repl": "mof r date", "rem": "mof rem", "due": "mof due"},
-            "ROF": {"repl": "rof r date", "rem": "rof rem", "due": "rof due"},
-            "AOS": {"repl": "aos r date", "rem": "aos rem", "due": "aos due"},
-            "RGT": {"repl": "rgt r date", "rem": "rgt rem", "due": "rgt due"},
-            "1500": {"repl": "1500 r date", "rem": "1500 rem", "due": "1500 due"},
-            "3000": {"repl": "3000 r date", "rem": "3000 rem", "due": "3000 due"}
+            "OIL": {"repl": "OIL R DATE", "rem": "OIL Rem", "due": "OIL Due Date"},
+            "AFC": {"repl": "AFC R DATE", "rem": "AFC Rem", "due": "AFC Due Date"},
+            "AFE": {"repl": "AFE R DATE", "rem": "AFE Rem", "due": "AFE Due Date"},
+            "MOF": {"repl": "MOF R DATE", "rem": "MOF Rem", "due": "MOF Due Date"},
+            "ROF": {"repl": "ROF R DATE", "rem": "ROF Rem", "due": "ROF Due Date"},
+            "AOS": {"repl": "AOS R DATE", "rem": "AOS Rem", "due": "AOS Due Date"},
+            "RGT": {"repl": "RGT R DATE", "rem": "RGT Rem", "due": "RGT Due Date"},
+            "1500": {"repl": "1500 R DATE", "rem": "1500 Rem", "due": "1500 Due Date"},
+            "3000": {"repl": "3000 R DATE", "rem": "3000 Rem", "due": "3000 Due Date"}
         }
 
         with m2:
             st.info("🔧 History (R Date)")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['repl']))}")
+            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_col_val(row, k['repl']))}")
         with m3:
             st.info("⏳ Remaining (Hrs)")
             for lbl, k in p_map.items():
-                val = row.get(k['rem'], "N/A")
+                val = get_col_val(row, k['rem'])
                 icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                 st.write(f"**{lbl}:** {icon} {val}")
         with m4:
             st.error("🚨 Next Due Date")
-            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(row.get(k['due']))}")
+            for lbl, k in p_map.items(): st.write(f"**{lbl}:** {fmt(get_col_val(row, k['due']))}")
 
         # --- MACHINE LEVEL FOC & HISTORY ---
         st.divider()
         c_f, c_s = st.columns(2)
         with c_f:
             st.subheader("🎁 Machine FOC")
-            f_col = next((c for c in foc.columns if 'Fabrication' in str(c)), None)
-            if f_col:
-                st.dataframe(foc[foc[f_col].astype(str) == str(sel_f)], use_container_width=True)
+            f_fab_col = next((c for c in foc.columns if 'fabrication' in str(c).lower()), None)
+            if f_fab_col:
+                res_foc = foc[foc[f_fab_col].astype(str) == str(sel_f)]
+                st.dataframe(res_foc, use_container_width=True) if not res_foc.empty else st.warning("No FOC entries.")
         with c_s:
             st.subheader("🕒 Service History")
-            s_col = next((c for c in service.columns if 'Fabrication' in str(c)), None)
-            if s_col:
-                st.dataframe(service[service[s_col].astype(str) == str(sel_f)], use_container_width=True)
+            s_fab_col = next((c for c in service.columns if 'fabrication' in str(c).lower()), None)
+            if s_fab_col:
+                res_srv = service[service[s_fab_col].astype(str) == str(sel_f)]
+                st.dataframe(res_srv, use_container_width=True) if not res_srv.empty else st.warning("No history entries.")
 
 elif choice == "📦 Full FOC List":
-    st.title("📦 All Active FOC")
     st.dataframe(foc, use_container_width=True)
 
 elif choice == "⏳ Overdue Service":
-    st.title("⏳ Service Pending")
-    over_c = next((c for c in master.columns if 'Overdue' in str(c)), None)
-    if over_c: st.dataframe(master[master[over_c] > 0], use_container_width=True)
-
-elif choice == "📢 Automation Center":
-    st.title("📢 Automation")
-    msg = st.text_area("WhatsApp Message:", "ELGi Service Alert!")
-    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer;">📱 Send WhatsApp</button></a>', unsafe_allow_html=True)
+    over_c = next((c for c in master.columns if 'overdue' in str(c).lower() or 'red' in str(c).lower()), None)
+    if over_c:
+        st.dataframe(master[master[over_c] > 0], use_container_width=True)
+    else: st.warning("Overdue column nahi mila.")

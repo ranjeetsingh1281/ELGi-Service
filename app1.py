@@ -31,11 +31,13 @@ def fmt(dt):
     try: return pd.to_datetime(dt).strftime('%d-%b-%y')
     except: return "N/A"
 
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
+def smart_get(row, keywords):
+    """Multiple keywords se sahi column dhoond kar value nikalne ka function"""
+    for col in row.index:
+        col_clean = str(col).strip().lower()
+        if all(k.lower() in col_clean for k in keywords):
+            return row[col]
+    return "N/A"
 
 @st.cache_data
 def load_all_data():
@@ -43,6 +45,7 @@ def load_all_data():
         m = pd.read_excel("Master_Data.xlsx", engine='openpyxl')
         f = pd.read_excel("Active_FOC.xlsx", engine='openpyxl')
         s = pd.read_excel("Service_Details.xlsx", engine='openpyxl')
+        # Standardize: column names se extra space hatana
         for d in [m, f, s]: d.columns = [str(c).strip() for c in d.columns]
         return m, f, s
     except: return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
@@ -60,12 +63,12 @@ if not master.empty:
     st.sidebar.write(f"**Total Units:** {len(master)}")
 
     # Commissioned Box
-    us_col = next((c for c in master.columns if 'unit status' in c.lower()), None)
+    us_col = next((c for c in master.columns if 'unit status' in str(c).lower()), None)
     comm_count = len(master[master[us_col].astype(str).str.contains('Commissioned', case=False)]) if us_col else 0
     st.sidebar.info(f"✅ Commissioned: {comm_count}")
 
     # Due Dates Calculation
-    due_col = next((c for c in master.columns if 'oil due' in c.lower()), None)
+    due_col = next((c for c in master.columns if 'oil due' in str(c).lower()), None)
     if due_col:
         master[due_col] = pd.to_datetime(master[due_col], errors='coerce')
         now = datetime.now()
@@ -81,7 +84,7 @@ if st.sidebar.button("Logout"):
     st.session_state.clear(); st.rerun()
 
 # ==============================
-# 🛠️ MACHINE SEARCH (Fixed)
+# 🛠️ MACHINE SEARCH (Ultra Flexible Fix)
 # ==============================
 if choice == "Machine Search":
     st.title("🛠️ Detailed Machine Search")
@@ -101,38 +104,41 @@ if choice == "Machine Search":
     if sel_f != "Select":
         row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
         
-        # Professional Grid
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             st.info("📋 Basic Info")
-            hmr = row.get('Current Hours', row.get('Current HMR', 'N/A'))
+            hmr = smart_get(row, ["current", "hmr"])
+            if hmr == "N/A": hmr = smart_get(row, ["current", "hours"])
             st.write(f"**Customer:** {row[cust_col]}")
             st.write(f"**HMR:** `{hmr}`")
-            st.write(f"**Last Call:** {fmt(row.get('Last Call Date'))}")
+            st.write(f"**Last Call:** {fmt(smart_get(row, ['last', 'call']))}")
 
+        # Parts mapping
         parts = ["OIL", "AFC", "AFE", "MOF", "ROF", "AOS", "RGT", "1500", "3000"]
         with m2:
             st.info("🔧 History (R Date)")
-            for p in parts: st.write(f"**{p}:** {fmt(row.get(f'{p.lower()} r date'))}")
+            for p in parts: st.write(f"**{p}:** {fmt(smart_get(row, [p, 'r date']))}")
         with m3:
             st.info("⏳ Remaining (Hrs)")
             for p in parts:
-                val = row.get(f'{p.lower()} rem', "N/A")
-                icon = '🟢' if pd.notna(val) and str(val).isdigit() and int(val)>100 else '🔴'
+                val = smart_get(row, [p, 'rem'])
+                icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
                 st.write(f"**{p}:** {icon} {val}")
         with m4:
             st.error("🚨 Next Due Date")
-            for p in parts: st.write(f"**{p}:** {fmt(row.get(f'{p.lower()} due'))}")
+            for p in parts: st.write(f"**{p}:** {fmt(smart_get(row, [p, 'due']))}")
 
-        # Machine level details
+        # Deep Links
         st.divider()
         low1, low2 = st.columns(2)
         with low1:
             st.subheader("🎁 Machine FOC")
-            st.dataframe(foc[foc[fab_col].astype(str) == str(sel_f)], use_container_width=True)
+            f_fab = next((c for c in foc.columns if 'fabrication' in str(c).lower()), foc.columns[0])
+            st.dataframe(foc[foc[f_fab].astype(str) == str(sel_f)], use_container_width=True)
         with low2:
             st.subheader("🕒 Service History")
-            st.dataframe(service[service[fab_col].astype(str) == str(sel_f)], use_container_width=True)
+            s_fab = next((c for c in service.columns if 'fabrication' in str(c).lower()), service.columns[0])
+            st.dataframe(service[service[s_fab].astype(str) == str(sel_f)], use_container_width=True)
 
 # ==============================
 # 📦 FOC LIST (Filtered Columns)
@@ -141,17 +147,25 @@ elif choice == "📦 FOC List":
     st.title("📦 DPSAC FOC Tracking List")
     req_cols = ["Created On", "FOC Number", "Work Order Number", "Customer Name", "FOC Status", "FABRICATION NO.", "Part Code", "Qty"]
     available_cols = [c for c in req_cols if c in foc.columns]
-    
     if not foc.empty:
         st.dataframe(foc[available_cols], use_container_width=True)
-    else: st.warning("No FOC Data found.")
+    else: st.warning("No FOC Data.")
 
 # ==============================
-# ⏳ OVERDUE & AUTOMATION
+# ⏳ OVERDUE SERVICE
 # ==============================
 elif choice == "⏳ Overdue Service":
     st.title("⏳ Overdue List")
-    # Overdue logic...
+    over_c = next((c for c in master.columns if 'overdue' in str(c).lower()), None)
+    if over_c:
+        master[over_c] = pd.to_numeric(master[over_c], errors='coerce').fillna(0)
+        st.dataframe(master[master[over_c] > 0], use_container_width=True)
+
+# ==============================
+# 📢 AUTOMATION
+# ==============================
 elif choice == "📢 Automation":
     st.title("📢 Automation Center")
-    # Automation logic...
+    msg = st.text_area("WA Message:", "ELGi Service Alert!")
+    wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Send WhatsApp</button></a>', unsafe_allow_html=True)

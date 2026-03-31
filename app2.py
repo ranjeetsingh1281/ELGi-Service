@@ -148,16 +148,29 @@ if choice == "Machine Search":
 # --- FIX 2: OVERDUE SERVICE LIST ---
 elif choice == "⏳ Overdue Service":
     st.title("⏳ Overdue Service List (Industrial)")
-    over_c = next((c for c in master_od.columns if any(k in str(c).lower() for k in ['overdue', 'red', 'pending'])), None)
+    
+    # 1. Sabse pehle 'RED' ya 'Overdue' keywords wala column dhoondna
+    over_c = next((c for c in master_od.columns if any(k in str(c).lower() for k in ['overdue', 'red count', 'pending count'])), None)
+    
     if over_c:
+        # 2. Data Cleaning: Text values ko numeric banana (errors='coerce' se non-numbers 0 ban jayenge)
         master_od[over_c] = pd.to_numeric(master_od[over_c], errors='coerce').fillna(0)
+        
+        # 3. Filter: Jinki value 0 se zyada hai
         overdue_df = master_od[master_od[over_c] > 0]
+        
         if not overdue_df.empty:
-            st.warning(f"Total {len(overdue_df)} Industrial machines overdue.")
+            st.warning(f"🚨 Total {len(overdue_df)} Industrial machines overdue mili hain!")
+            # 4. Sahi columns dikhana (Customer, Fab Number, aur Overdue Count)
             st.dataframe(overdue_df, use_container_width=True)
-            st.download_button("📥 Export Red List", to_excel(overdue_df), "Ind_Overdue.xlsx")
-        else: st.success("✅ No overdue machines found.")
-    else: st.error("Excel mein 'Overdue' column nahi mila.")
+            st.download_button("📥 Export Overdue List", to_excel(overdue_df), "Industrial_Overdue_Report.xlsx")
+        else:
+            st.success("✅ Sab sahi hai! Excel ke mutabik koi overdue machine nahi hai.")
+            # Debugging ke liye: Agar list khali hai toh dikhao ki system ne kaunsa column pick kiya
+            with st.expander("🔍 System Debug Info"):
+                st.write(f"System ne '{over_c}' column ko detect kiya hai.")
+    else:
+        st.error("🚨 Overdue column nahi mila! Excel mein check karein ki 'Overdue' ya 'Red' naam ka column hai ya nahi.")
 
 # --- FIX 3: AUTOMATION CENTRE WHATSAPP ---
 elif choice == "📢 Automation Center":

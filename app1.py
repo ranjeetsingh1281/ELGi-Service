@@ -154,21 +154,28 @@ elif choice == "📦 Full FOC List":
 elif choice == "⏳ Overdue Service":
     st.title("⏳ Service Pending (Red List)")
     
-    # Overdue column dhoondna
-    over_c = next((c for c in master.columns if 'overdue' in str(c).lower()), None)
+    # 1. Multiple keywords se column dhoondna (Overdue, Red, ya Pending)
+    over_c = next((c for c in master.columns if any(k in str(c).lower() for k in ['overdue', 'red', 'pending'])), None)
     
     if over_c:
-        # Error Fix: Column ko numeric mein convert karna (errors='coerce' se text '0' ban jayega)
+        # 2. Data clean karna: Text ko number mein convert karna
         master[over_c] = pd.to_numeric(master[over_c], errors='coerce').fillna(0)
         
-        # Ab filter karna safe hai
+        # 3. Filter machines (Value 0 se zyada honi chahiye)
         overdue_df = master[master[over_c] > 0]
         
         if not overdue_df.empty:
-            st.success(f"Total {len(overdue_df)} machines overdue mili hain.")
+            st.warning(f"Total {len(overdue_df)} machines overdue mili hain.")
             st.dataframe(overdue_df, use_container_width=True)
-            st.download_button("📥 Download Red List", to_excel(overdue_df), "Overdue_Report.xlsx")
+            
+            # Export Option
+            st.download_button("📥 Download Red List (Excel)", to_excel(overdue_df), "Overdue_Report.xlsx")
         else:
-            st.success("✅ Sab sahi hai! Koi bhi machine overdue nahi hai.")
+            st.success("✅ Sab makkhan chal raha hai! Koi bhi machine overdue nahi mili.")
     else:
-        st.error("🚨 Excel mein 'Overdue' naam ka column nahi mila. Column name check karein.")
+        # Agar phir bhi na mile toh manual column selection ka option do (Safety ke liye)
+        st.error("🚨 Overdue column auto-detect nahi ho paya.")
+        manual_col = st.selectbox("Apne Excel se 'Overdue Count' wala column select karein:", master.columns)
+        if st.button("Manual Filter"):
+            master[manual_col] = pd.to_numeric(master[manual_col], errors='coerce').fillna(0)
+            st.dataframe(master[master[manual_col] > 0])

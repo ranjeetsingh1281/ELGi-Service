@@ -152,5 +152,23 @@ elif choice == "📢 Automation Center":
 elif choice == "📦 Full FOC List":
     st.dataframe(foc, use_container_width=True)
 elif choice == "⏳ Overdue Service":
-    over_c = next((c for c in master.columns if 'overdue' in str(c).lower()), master.columns[-1])
-    st.dataframe(master[master[over_c] > 0], use_container_width=True)
+    st.title("⏳ Service Pending (Red List)")
+    
+    # Overdue column dhoondna
+    over_c = next((c for c in master.columns if 'overdue' in str(c).lower()), None)
+    
+    if over_c:
+        # Error Fix: Column ko numeric mein convert karna (errors='coerce' se text '0' ban jayega)
+        master[over_c] = pd.to_numeric(master[over_c], errors='coerce').fillna(0)
+        
+        # Ab filter karna safe hai
+        overdue_df = master[master[over_c] > 0]
+        
+        if not overdue_df.empty:
+            st.success(f"Total {len(overdue_df)} machines overdue mili hain.")
+            st.dataframe(overdue_df, use_container_width=True)
+            st.download_button("📥 Download Red List", to_excel(overdue_df), "Overdue_Report.xlsx")
+        else:
+            st.success("✅ Sab sahi hai! Koi bhi machine overdue nahi hai.")
+    else:
+        st.error("🚨 Excel mein 'Overdue' naam ka column nahi mila. Column name check karein.")

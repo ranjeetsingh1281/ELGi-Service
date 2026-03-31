@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime
 from io import BytesIO
 
 # ==============================
@@ -24,12 +24,13 @@ if "d_login" not in st.session_state:
 # ==============================
 # ⚙️ CONFIG & HELPERS
 # ==============================
-st.set_page_config(page_title="ELGi DPSAC Tracker", layout="wide")
+st.set_page_config(page_title="ELGi DPSAC Tracker Pro", layout="wide")
 
-def fmt(dt):
-    if pd.isna(dt) or dt == 0 or str(dt).lower() in ["nan", "nat"]: return "N/A"
-    try: return pd.to_datetime(dt).strftime('%d-%b-%y')
-    except: return "N/A"
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
 
 @st.cache_data
 def load_all_data():
@@ -44,50 +45,46 @@ def load_all_data():
 master, foc, service = load_all_data()
 
 # ==============================
-# 📊 SIDEBAR KPI COUNTERS (NEW UPDATE)
+# 📊 SIDEBAR METRICS (Fixed Layout)
 # ==============================
 st.sidebar.title(f"👋 {st.session_state['d_user'].upper()}")
 
 if not master.empty:
     st.sidebar.divider()
-    st.sidebar.subheader("📊 Dashboard Metrics")
+    st.sidebar.markdown("### 📊 Dashboard Metrics")
     
-    # 1. Unit Status Count (Assuming 'Unit Status' column exists)
+    # Total Units
+    st.sidebar.write(f"**Total Units:** {len(master)}")
+
+    # Commissioned Box
     us_col = next((c for c in master.columns if 'unit status' in c.lower()), None)
-    if us_col:
-        st.sidebar.write(f"**Total Units:** {len(master)}")
-        st.sidebar.info(f"✅ Commissioned: {len(master[master[us_col].astype(str).str.contains('Commissioned', case=False)])}")
+    comm_count = len(master[master[us_col].astype(str).str.contains('Commissioned', case=False)]) if us_col else 0
+    st.sidebar.info(f"✅ Commissioned: {comm_count}")
 
-    # 2. Overdue Count
-    od_col = next((c for c in master.columns if 'overdue' in c.lower()), None)
-    if od_col:
-        od_count = len(master[pd.to_numeric(master[od_col], errors='coerce').fillna(0) > 0])
-        st.sidebar.error(f"🚨 Overdue Count: {od_count}")
-
-    # 3. Current Month Due Count & 4. Next Month Due
-    # Hum 'OIL Due Date' ko standard maante hain calculation ke liye
+    # Due Dates Calculation
     due_col = next((c for c in master.columns if 'oil due' in c.lower()), None)
     if due_col:
         master[due_col] = pd.to_datetime(master[due_col], errors='coerce')
         now = datetime.now()
-        curr_month = master[master[due_col].dt.month == now.month]
-        next_month = master[master[due_col].dt.month == (now.month % 12) + 1]
-        st.sidebar.warning(f"📅 Current Month Due: {len(curr_month)}")
-        st.sidebar.success(f"🗓️ Next Month Due: {len(next_month)}")
+        curr_m = len(master[master[due_col].dt.month == now.month])
+        next_m = len(master[master[due_col].dt.month == (now.month % 12) + 1])
+        
+        st.sidebar.warning(f"📅 Current Month Due: {curr_m}")
+        st.sidebar.success(f"🗓️ Next Month Due: {next_m}")
 
 st.sidebar.divider()
-nav = st.sidebar.radio("Navigation:", ["Machine Search", "📦 FOC List", "⏳ Overdue Service", "📢 Automation"])
+# --- ERROR FIX: Variable name is 'choice' now ---
+choice = st.sidebar.radio("Navigation:", ["Machine Search", "📦 FOC List", "⏳ Overdue Service", "📢 Automation"])
 
 if st.sidebar.button("Logout"):
     st.session_state.clear(); st.rerun()
 
 # ==============================
-# 💎 MAIN CONTENT - DPSAC FOC LIST (COLUMNS FILTERED)
+# 📦 FOC LIST (Filtered Columns)
 # ==============================
 if choice == "📦 FOC List":
     st.title("📦 DPSAC FOC Tracking List")
     
-    # --- BOSS, ye hain aapke requested columns ---
     required_columns = [
         "Created On", "FOC Number", "Work Order Number", "Customer Name", 
         "FOC Type", "FOC Category", "FOC Status", "Created By", "Owner", 
@@ -97,24 +94,24 @@ if choice == "📦 FOC List":
         "Failure Material Details", "Part Code", "Qty"
     ]
     
-    # Filtering columns that exist in the excel
+    # Exact Column Filter
     available_cols = [c for c in required_columns if c in foc.columns]
     
     if not foc.empty:
-        # Search Box for FOC List
-        search_foc = st.text_input("🔍 Search by FOC or Fabrication No:")
+        search_id = st.text_input("🔍 Search by FOC or Fab Number:")
         display_foc = foc[available_cols]
         
-        if search_foc:
-            display_foc = display_foc[display_foc.astype(str).apply(lambda x: x.str.contains(search_foc, case=False)).any(axis=1)]
+        if search_id:
+            display_foc = display_foc[display_foc.astype(str).apply(lambda x: x.str.contains(search_id, case=False)).any(axis=1)]
         
         st.dataframe(display_foc, use_container_width=True)
-        st.download_button("📥 Download Filtered FOC", display_foc.to_csv(index=False), "FOC_Report.csv")
+        st.download_button("📥 Export FOC Report", to_excel(display_foc), "FOC_Report.xlsx")
     else:
-        st.warning("FOC Data nahi mila!")
+        st.warning("FOC Data load nahi ho saka.")
 
-# --- MACHINE SEARCH SECTION ---
+# ==============================
+# 🛠️ MACHINE SEARCH & OTHERS
+# ==============================
 elif choice == "Machine Search":
-    st.title("🛠️ Machine Detailed Lookup")
-    # (Purana logic jisme m1, m2, m3, m4 grid hai)
-    # ... code continues ...
+    st.title("🛠️ Detailed Machine Search")
+    # ... baki search logic same rahega ...

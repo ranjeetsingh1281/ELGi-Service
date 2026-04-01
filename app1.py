@@ -4,24 +4,11 @@ from datetime import datetime
 import plotly.express as px
 from io import BytesIO
 import urllib.parse
-import requests
 
-# ==============================
-# CONFIG
-# ==============================
 st.set_page_config(layout="wide")
 
 # ==============================
-# DARK UI
-# ==============================
-st.markdown("""
-<style>
-body {background-color:#0f172a;color:white;}
-</style>
-""", unsafe_allow_html=True)
-
-# ==============================
-# LOGIN (WITH VIEWER)
+# LOGIN
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "admin"},
@@ -30,9 +17,7 @@ USER_DB = {
 }
 
 if "login" not in st.session_state:
-
     st.title("🔐 ELGi Login")
-
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
@@ -44,7 +29,6 @@ if "login" not in st.session_state:
             st.rerun()
         else:
             st.error("Invalid Login")
-
     st.stop()
 
 role = st.session_state["role"]
@@ -81,7 +65,12 @@ def to_excel(df):
 # LOAD DATA
 # ==============================
 master = pd.read_excel("Master_Data.xlsx")
+foc = pd.read_excel("Active_FOC.xlsx")
+service = pd.read_excel("Service_Details.xlsx")
+
 master.columns = master.columns.str.strip()
+foc.columns = foc.columns.str.strip()
+service.columns = service.columns.str.strip()
 
 # ==============================
 # COLUMN DETECT
@@ -91,10 +80,9 @@ cat_col = next((c for c in master.columns if "category" in c.lower()), None)
 cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
 fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
 over_col = next((c for c in master.columns if "over" in c.lower()), None)
-hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
 
 # ==============================
-# SIDEBAR FILTERS
+# FILTER
 # ==============================
 st.sidebar.title(f"👋 {st.session_state['user']} ({role})")
 
@@ -108,6 +96,7 @@ df = master if sel_c == "All" else master[master[cust_col] == sel_c]
 # ==============================
 st.title("📊 ELGi Executive Dashboard")
 
+# UNIT STATUS COUNT
 total = len(df)
 active = len(df[df[status_col].str.contains("active", case=False, na=False)])
 shifted = len(df[df[status_col].str.contains("shifted", case=False, na=False)])
@@ -119,19 +108,16 @@ c2.metric("Active", active)
 c3.metric("Shifted", shifted)
 c4.metric("Sold", sold)
 
-# CATEGORY CHART
+# CATEGORY COUNT
 if cat_col:
-    st.subheader("📊 Category Distribution")
+    st.subheader("📊 Category Count")
+    cat_count = df[cat_col].value_counts()
+    st.dataframe(cat_count)
     st.plotly_chart(px.pie(df, names=cat_col), use_container_width=True)
 
 # STATUS CHART
 st.subheader("📊 Status Distribution")
 st.plotly_chart(px.bar(df[status_col].value_counts()), use_container_width=True)
-
-# TREND
-if hmr_col:
-    st.subheader("📈 HMR Trend")
-    st.plotly_chart(px.line(df, y=hmr_col), use_container_width=True)
 
 # ==============================
 # MACHINE TRACKER
@@ -166,14 +152,35 @@ if sel_f != "Select":
             st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
 
 # ==============================
-# EXPORT (ROLE BASED)
+# FOC LIST
+# ==============================
+st.subheader("🎁 FOC List")
+
+f_fab = next((c for c in foc.columns if "fabrication" in c.lower()), foc.columns[0])
+foc_cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date"])]
+
+st.dataframe(foc[foc_cols], use_container_width=True)
+
+# ==============================
+# OVERDUE SERVICE
+# ==============================
+st.subheader("⏳ Overdue Service")
+
+if over_col:
+    master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
+    overdue_df = master[master[over_col] > 0]
+
+    st.dataframe(overdue_df, use_container_width=True)
+
+# ==============================
+# EXPORT
 # ==============================
 st.subheader("📥 Export")
 
 if role != "viewer":
-    st.download_button("📊 Download Excel", to_excel(df), "dashboard.xlsx")
+    st.download_button("📊 Excel", to_excel(df), "dashboard.xlsx")
 else:
-    st.info("👁️ Viewer Mode: Export disabled")
+    st.info("Viewer Mode: Export disabled")
 
 # ==============================
 # ALERT
@@ -186,45 +193,4 @@ if role != "viewer":
     wa = f"https://wa.me/91XXXXXXXXXX?text={urllib.parse.quote(msg)}"
     st.markdown(f"[📱 Send WhatsApp]({wa})")
 else:
-    st.info("👁️ Viewer Mode: Alert disabled")
-
-# ==============================
-# VOICE COMMAND
-# ==============================
-import speech_recognition as sr
-
-def voice():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 बोलो...")
-        audio = r.listen(source)
-
-    try:
-        return r.recognize_google(audio)
-    except:
-        return ""
-
-if st.button("🎤 Voice Command"):
-    cmd = voice()
-    st.write("You said:", cmd)
-
-    if "status" in cmd.lower():
-        st.success(f"Total machines: {len(df)}")
-
-    if "overdue" in cmd.lower():
-        st.error(f"{len(df[df[over_col]>0])} overdue machines")
-
-# ==============================
-# AI API (OPTIONAL)
-# ==============================
-st.subheader("🤖 AI Prediction")
-
-if st.button("Run AI"):
-    try:
-        res = requests.post(
-            "http://127.0.0.1:8000/predict",
-            json={"hmr":1000,"avg":10}
-        )
-        st.write(res.json())
-    except:
-        st.warning("ML API not running")
+    st.info("Viewer Mode: Alert disabled")

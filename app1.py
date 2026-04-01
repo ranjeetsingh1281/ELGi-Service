@@ -32,13 +32,16 @@ def fmt(dt):
     except: return "N/A"
 
 def smart_get(row, keywords):
-    """Multiple keywords se sahi column dhoond kar value nikalne ka function"""
     for col in row.index:
-        col_clean = str(col).strip().lower()
-        if all(k.lower() in col_clean for k in keywords):
-            return row[col]
+        col_clean = str(col).strip().lower().replace("-", "").replace("_", "").replace(" ", "")
+        
+        if all(k.lower().replace(" ", "") in col_clean for k in keywords):
+            val = row[col]
+            return val if pd.notna(val) else "N/A"
+    
     return "N/A"
-
+    """Multiple keywords se sahi column dhoond kar value nikalne ka function"""
+   
 @st.cache_data
 def load_all_data():
     try:
@@ -114,7 +117,17 @@ if choice == "Machine Search":
             st.write(f"**Last Call:** {fmt(smart_get(row, ['last', 'call']))}")
 
         # Parts mapping
-        parts = ["OIL", "AFC", "AFE", "MOF", "ROF", "AOS", "RGT", "1500", "3000"]
+        parts_map = {
+            "OIL": ["oil", "r"],
+            "AFC": ["afc", "r"],
+            "AFE": ["afe", "r"],
+            "MOF": ["mof", "r"],
+            "ROF": ["rof", "r"],
+            "AOS": ["aos", "r"],
+            "RGT": ["grease", "r"],
+            "1500": ["1500", "r"],
+            "3000": ["3000", "r"]
+}
         with m2:
             st.info("🔧 History (R Date)")
             for p in parts: st.write(f"**{p}:** {fmt(smart_get(row, [p, 'r date']))}")

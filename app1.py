@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import plotly.express as px
+from io import BytesIO
 import urllib.parse
+import requests
 
 # ==============================
 # CONFIG
@@ -9,139 +12,138 @@ import urllib.parse
 st.set_page_config(layout="wide")
 
 # ==============================
-# LOGIN
+# DARK UI
 # ==============================
-USER_DB = {"admin": "admin123", "user": "123"}
+st.markdown("""
+<style>
+body {background-color:#0f172a;color:white;}
+</style>
+""", unsafe_allow_html=True)
+
+# ==============================
+# LOGIN (WITH VIEWER)
+# ==============================
+USER_DB = {
+    "admin": {"pass": "admin123", "role": "admin"},
+    "user": {"pass": "123", "role": "user"},
+    "viewer": {"pass": "demo", "role": "viewer"}
+}
 
 if "login" not in st.session_state:
+
     st.title("🔐 ELGi Login")
+
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
+        if u in USER_DB and USER_DB[u]["pass"] == p:
             st.session_state["login"] = True
+            st.session_state["role"] = USER_DB[u]["role"]
             st.session_state["user"] = u
             st.rerun()
         else:
             st.error("Invalid Login")
+
     st.stop()
+
+role = st.session_state["role"]
 
 # ==============================
 # HELPERS
 # ==============================
-def fmt(dt):
-    try:
-        return pd.to_datetime(dt).strftime('%d-%b-%y')
-    except:
-        return "N/A"
-
-def color(val):
-    try:
-        val = float(val)
-        if val < 0:
-            return f"🔴 {val}"
-        elif val <= 200:
-            return f"🟡 {val}"
-        else:
-            return f"🟢 {val}"
-    except:
-        return "N/A"
-
 def smart_get(row, keys):
     for col in row.index:
-        c = str(col).lower().replace(" ", "").replace("-", "")
+        c = str(col).lower().replace(" ","").replace("-","")
         if all(k in c for k in keys):
             return row[col]
     return "N/A"
 
+def fmt(x):
+    try: return pd.to_datetime(x).strftime('%d-%b-%y')
+    except: return "N/A"
+
+def color(v):
+    try:
+        v = float(v)
+        if v < 0: return f"🔴 {v}"
+        elif v <= 200: return f"🟡 {v}"
+        else: return f"🟢 {v}"
+    except:
+        return "N/A"
+
+def to_excel(df):
+    buf = BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
+
 # ==============================
 # LOAD DATA
 # ==============================
-@st.cache_data
-def load():
-    m = pd.read_excel("Master_Data.xlsx")
-    f = pd.read_excel("Active_FOC.xlsx")
-    s = pd.read_excel("Service_Details.xlsx")
+master = pd.read_excel("Master_Data.xlsx")
+master.columns = master.columns.str.strip()
 
-    for d in [m,f,s]:
-        d.columns = d.columns.str.strip()
-
-    return m,f,s
-
-master,foc,service = load()
+# ==============================
+# COLUMN DETECT
+# ==============================
+status_col = next((c for c in master.columns if "status" in c.lower()), None)
+cat_col = next((c for c in master.columns if "category" in c.lower()), None)
+cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
+fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
+over_col = next((c for c in master.columns if "over" in c.lower()), None)
+hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
 
 # ==============================
 # SIDEBAR FILTERS
 # ==============================
-st.sidebar.title("🔍 Filters")
-
-cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
-date_col = next((c for c in master.columns if "date" in c.lower()), None)
+st.sidebar.title(f"👋 {st.session_state['user']} ({role})")
 
 customers = ["All"] + sorted(master[cust_col].astype(str).unique())
 sel_c = st.sidebar.selectbox("Customer", customers)
 
-if date_col:
-    start = st.sidebar.date_input("From Date", datetime(2023,1,1))
-    end = st.sidebar.date_input("To Date", datetime.today())
-else:
-    start = end = None
-
-# APPLY FILTER
-df = master.copy()
-
-if sel_c != "All":
-    df = df[df[cust_col] == sel_c]
-
-if date_col:
-    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-    df = df[(df[date_col] >= pd.to_datetime(start)) & (df[date_col] <= pd.to_datetime(end))]
+df = master if sel_c == "All" else master[master[cust_col] == sel_c]
 
 # ==============================
 # DASHBOARD
 # ==============================
-st.title("📊 ELGi Premium Dashboard")
-
-status_col = next((c for c in master.columns if "status" in c.lower()), None)
+st.title("📊 ELGi Executive Dashboard")
 
 total = len(df)
 active = len(df[df[status_col].str.contains("active", case=False, na=False)])
 shifted = len(df[df[status_col].str.contains("shifted", case=False, na=False)])
 sold = len(df[df[status_col].str.contains("sold", case=False, na=False)])
 
-c1,c2,c3,c4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total", total)
 c2.metric("Active", active)
 c3.metric("Shifted", shifted)
 c4.metric("Sold", sold)
 
-# ==============================
-# CHARTS
-# ==============================
-st.subheader("📊 Status Distribution")
-st.bar_chart(df[status_col].value_counts())
+# CATEGORY CHART
+if cat_col:
+    st.subheader("📊 Category Distribution")
+    st.plotly_chart(px.pie(df, names=cat_col), use_container_width=True)
 
-st.subheader("📈 Trend Chart")
-hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
+# STATUS CHART
+st.subheader("📊 Status Distribution")
+st.plotly_chart(px.bar(df[status_col].value_counts()), use_container_width=True)
+
+# TREND
 if hmr_col:
-    st.line_chart(df[hmr_col])
+    st.subheader("📈 HMR Trend")
+    st.plotly_chart(px.line(df, y=hmr_col), use_container_width=True)
 
 # ==============================
 # MACHINE TRACKER
 # ==============================
 st.subheader("🔍 Machine Tracker")
 
-fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
-
-sel_f = st.selectbox("Select Fabrication", ["Select"] + sorted(df[fab_col].astype(str).unique()))
+sel_f = st.selectbox("Fabrication", ["Select"] + sorted(df[fab_col].astype(str).unique()))
 
 if sel_f != "Select":
-
     row = df[df[fab_col] == sel_f].iloc[0]
 
-    col1,col2,col3,col4 = st.columns(4)
-
+    col1, col2, col3, col4 = st.columns(4)
     parts = ["oil","afc","afe","mof","rof","aos","rgt","1500","3000"]
 
     with col1:
@@ -156,8 +158,7 @@ if sel_f != "Select":
     with col3:
         st.markdown("### ⏳ Remaining")
         for p in parts:
-            val = smart_get(row,[p,"rem"])
-            st.write(p.upper(), color(val))
+            st.write(p.upper(), color(smart_get(row,[p,"rem"])))
 
     with col4:
         st.markdown("### 🚨 Due")
@@ -165,23 +166,65 @@ if sel_f != "Select":
             st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
 
 # ==============================
-# OVERDUE PANEL
+# EXPORT (ROLE BASED)
 # ==============================
-over_col = next((c for c in master.columns if "over" in c.lower()), None)
+st.subheader("📥 Export")
 
-if over_col:
-    master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
-    overdue = master[master[over_col] > 0]
-
-    if len(overdue) > 0:
-        st.error(f"🚨 {len(overdue)} Machines Overdue")
+if role != "viewer":
+    st.download_button("📊 Download Excel", to_excel(df), "dashboard.xlsx")
+else:
+    st.info("👁️ Viewer Mode: Export disabled")
 
 # ==============================
-# WHATSAPP ALERT
+# ALERT
 # ==============================
-st.subheader("📢 Send Alert")
+st.subheader("📢 Alert")
 
 msg = st.text_area("Message", "Service Due Alert")
 
-wa = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-st.markdown(f"[📱 Send WhatsApp Alert]({wa})")
+if role != "viewer":
+    wa = f"https://wa.me/91XXXXXXXXXX?text={urllib.parse.quote(msg)}"
+    st.markdown(f"[📱 Send WhatsApp]({wa})")
+else:
+    st.info("👁️ Viewer Mode: Alert disabled")
+
+# ==============================
+# VOICE COMMAND
+# ==============================
+import speech_recognition as sr
+
+def voice():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("🎤 बोलो...")
+        audio = r.listen(source)
+
+    try:
+        return r.recognize_google(audio)
+    except:
+        return ""
+
+if st.button("🎤 Voice Command"):
+    cmd = voice()
+    st.write("You said:", cmd)
+
+    if "status" in cmd.lower():
+        st.success(f"Total machines: {len(df)}")
+
+    if "overdue" in cmd.lower():
+        st.error(f"{len(df[df[over_col]>0])} overdue machines")
+
+# ==============================
+# AI API (OPTIONAL)
+# ==============================
+st.subheader("🤖 AI Prediction")
+
+if st.button("Run AI"):
+    try:
+        res = requests.post(
+            "http://127.0.0.1:8000/predict",
+            json={"hmr":1000,"avg":10}
+        )
+        st.write(res.json())
+    except:
+        st.warning("ML API not running")

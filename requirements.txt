@@ -6,3 +6,6 @@ pywhatkit
 twilio
 schedule
 supabase
+plotly
+reportlab
+requests

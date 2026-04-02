@@ -1,190 +1,191 @@
 import streamlit as st
 import pandas as pd
-import os
-import urllib.parse
-from datetime import datetime
 from io import BytesIO
+import urllib.parse
+from reportlab.platypus import SimpleDocTemplate, Table
+from reportlab.lib import colors
 
 # ==============================
-# 🔐 LOGIN SYSTEM (INDUSTRIAL)
+# CONFIG
+# ==============================
+st.set_page_config(layout="wide")
+
+# ==============================
+# LOGIN (WITH VIEWER)
 # ==============================
 USER_DB = {
-    "admin": {"pass": "admin123", "role": "all"},
-    "user2": {"pass": "ind123", "role": "industrial"},
-    "user3": {"pass": "view456", "role": "viewer"}
+    "admin": {"pass": "admin123", "role": "admin"},
+    "user": {"pass": "123", "role": "user"},
+    "viewer": {"pass": "demo", "role": "viewer"}
 }
 
-if "i_login" not in st.session_state:
-    st.title("🏗️ ELGi INDUSTRIAL Tracker Login")
-    u = st.text_input("Username", key="ind_u")
-    p = st.text_input("Password", type="password", key="ind_p")
+if "login" not in st.session_state:
+    st.title("🔐 ELGi Login")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+
     if st.button("Login"):
         if u in USER_DB and USER_DB[u]["pass"] == p:
-            st.session_state["i_login"], st.session_state["i_role"], st.session_state["i_user"] = True, USER_DB[u]["role"], u
+            st.session_state["login"] = True
+            st.session_state["role"] = USER_DB[u]["role"]
+            st.session_state["user"] = u
             st.rerun()
-        else: st.error("Invalid Credentials")
+        else:
+            st.error("Invalid Login")
     st.stop()
 
+role = st.session_state["role"]
+
 # ==============================
-# ⚙️ HELPERS
+# EXPORT FUNCTIONS
 # ==============================
-st.set_page_config(page_title="ELGi Industrial Tracker Pro", layout="wide")
-
-def fmt(dt):
-    if pd.isna(dt) or dt == 0 or str(dt).lower() in ["nan", "nat"]: return "N/A"
-    try:
-        val = pd.to_datetime(dt)
-        return val.strftime('%d-%b-%y') if val.year > 1970 else "N/A"
-    except: return "N/A"
-
-def smart_get(row, keywords):
-    """Industrial MDA columns dhoondne ke liye advanced logic"""
-    for col in row.index:
-        col_clean = str(col).strip().lower()
-        if all(k.lower() in col_clean for k in keywords):
-            return row[col]
-    return "N/A"
-
 def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
+    buf = BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
+
+def to_pdf(df):
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf)
+    data = [df.columns.tolist()] + df.astype(str).values.tolist()
+
+    table = Table(data)
+    table.setStyle([
+        ('BACKGROUND',(0,0),(-1,0),colors.grey),
+        ('GRID',(0,0),(-1,-1),1,colors.black)
+    ])
+
+    doc.build([table])
+    return buf.getvalue()
 
 # ==============================
-# 📂 DATA LOADING
+# LOAD DATA
 # ==============================
-@st.cache_data
-def load_ind_data():
-    try:
-        # INDUSTRIAL specific master file
-        m = pd.read_excel("Master_OD_Data.xlsx", engine='openpyxl')
-        f = pd.read_excel("Active_FOC.xlsx", engine='openpyxl')
-        s = pd.read_excel("Service_Details.xlsx", engine='openpyxl')
-        for d in [m, f, s]:
-            if not d.empty: d.columns = [str(c).strip() for c in d.columns]
-        return m, f, s
-    except Exception as e:
-        st.error(f"Files missing: {e}")
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+master = pd.read_excel("Master_Data.xlsx")
+od = pd.read_excel("Master_OD_Data.xlsx")
+foc = pd.read_excel("Active_FOC.xlsx")
 
-master_od, foc, service = load_ind_data()
+master.columns = master.columns.str.strip()
+od.columns = od.columns.str.strip()
+foc.columns = foc.columns.str.strip()
 
 # ==============================
-# 🏢 NAVIGATION
+# COLUMN DETECT
 # ==============================
-st.sidebar.title(f"👋 {st.session_state['i_user'].upper()}")
-nav_list = ["Machine Search", "📦 Full FOC List", "⏳ Overdue Service", "📢 Automation Center"]
-if st.session_state["i_role"] == "viewer": nav_list.remove("📢 Automation Center")
-choice = st.sidebar.radio("Navigation:", nav_list)
+cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
+status_col = next((c for c in master.columns if "status" in c.lower()), None)
+cat_col = next((c for c in master.columns if "category" in c.lower()), None)
+fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
+over_col = next((c for c in master.columns if "over" in c.lower()), None)
 
-if st.sidebar.button("Logout"):
-    st.session_state.clear(); st.rerun()
+cust_col_od = next((c for c in od.columns if "customer" in c.lower()), od.columns[0])
+fab_col_od = next((c for c in od.columns if "fabrication" in c.lower()), od.columns[1])
+over_col_od = next((c for c in od.columns if "over" in c.lower()), None)
 
 # ==============================
-# 💎 INDUSTRIAL ENGINE
+# SIDEBAR
 # ==============================
-if master_od.empty:
-    st.error("🚨 'Master_OD_Data.xlsx' nahi mili!")
-    st.stop()
+st.sidebar.title(f"👋 {st.session_state['user']} ({role})")
 
-# Detect Base Columns
-cust_col = next((c for c in master_od.columns if 'customer' in str(c).lower()), master_od.columns[0])
-fab_col = next((c for c in master_od.columns if 'fabrication' in str(c).lower()), master_od.columns[1])
+menu = st.sidebar.radio("Select Tracker", ["DPSAC Tracker", "Industrial Tracker"])
 
-if choice == "Machine Search":
-    st.title("🛠️ Industrial Machine Tracker")
-    c1, c2 = st.columns(2)
-    sel_c = c1.selectbox("Select Customer", ["All"] + sorted(master_od[cust_col].astype(str).unique()))
-    df_f = master_od if sel_c == "All" else master_od[master_od[cust_col] == sel_c]
-    sel_f = c2.selectbox("Select Fabrication Number", ["Select"] + sorted(df_f[fab_col].astype(str).unique()))
+# ==============================
+# DPSAC TRACKER
+# ==============================
+if menu == "DPSAC Tracker":
+
+    st.title("📊 DPSAC Dashboard")
+
+    customers = ["All"] + sorted(master[cust_col].astype(str).unique())
+    sel = st.selectbox("Customer", customers)
+
+    df = master if sel == "All" else master[master[cust_col] == sel]
+
+    # KPI
+    total = len(df)
+    active = len(df[df[status_col].str.contains("active", case=False, na=False)])
+    shifted = len(df[df[status_col].str.contains("shifted", case=False, na=False)])
+    sold = len(df[df[status_col].str.contains("sold", case=False, na=False)])
+
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("Total", total)
+    c2.metric("Active", active)
+    c3.metric("Shifted", shifted)
+    c4.metric("Sold", sold)
+
+    # Category
+    if cat_col:
+        st.subheader("Category Count")
+        st.dataframe(df[cat_col].value_counts())
+
+    # Machine Tracker
+    st.subheader("Machine Tracker")
+    sel_f = st.selectbox("Fabrication", ["Select"] + list(df[fab_col].astype(str).unique()))
 
     if sel_f != "Select":
-        row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
-        m1, m2, m3, m4 = st.columns(4)
-        
-        with m1:
-            st.info("📋 Basic Info")
-            hmr = smart_get(row, ["current", "hmr"])
-            st.write(f"**Customer:** {row[cust_col]}")
-            st.write(f"**HMR (Current):** `{hmr}`")
-            st.write(f"**Last Call:** {fmt(smart_get(row, ['last', 'call']))}")
+        st.dataframe(df[df[fab_col] == sel_f])
 
-        # INDUSTRIAL MDA Mapping
-        parts = {
-            "OIL": {"repl": "MDA Oil R Date", "rem": "OIL Rem", "due": "Oil R Date"},
-            "AF": {"repl": "MDA AF R Date", "rem": "AF Rem", "due": "AF R Date"},
-            "OF": {"repl": "MDA OF R Date", "rem": "OF Rem", "due": "OF R Date"},
-            "AOS": {"repl": "MDA AOS R Date", "rem": "AOS Rem", "due": "AOS R Date"},
-            "RGT": {"repl": "MDA RGT R Date", "rem": "RGT Rem", "due": "RGT R Date"},
-            "VK": {"repl": "MDA Valvekit R Date", "rem": "VK Rem", "due": "Valvekit R Date"}
-        }
+    # FOC
+    st.subheader("FOC List")
+    st.dataframe(foc)
 
-        with m2:
-            st.info("🔧 History (R Date)")
-            for lbl, k in parts.items(): st.write(f"**{lbl}:** {fmt(smart_get(row, [k['repl']]))}")
-        with m3:
-            st.info("⏳ Remaining (Hrs)")
-            for lbl, k in parts.items():
-                val = smart_get(row, [k['rem']])
-                icon = '🟢' if pd.notna(val) and str(val).replace('.','').replace('-','').isdigit() and float(val)>100 else '🔴'
-                st.write(f"**{lbl}:** {icon} {val}")
-        with m4:
-            st.error("🚨 Next Due Date")
-            for lbl, k in parts.items(): st.write(f"**{lbl}:** {fmt(smart_get(row, [k['due']]))}")
+    # Overdue
+    if over_col:
+        master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
+        overdue = master[master[over_col] > 0]
 
-        # --- FIX 1: FOC & HISTORY APPEARED ---
-        st.divider()
-        low1, low2 = st.columns(2)
-        with low1:
-            st.subheader("🎁 Machine FOC List")
-            f_fab = next((c for c in foc.columns if 'fabrication' in str(c).lower()), foc.columns[0])
-            st.dataframe(foc[foc[f_fab].astype(str) == str(sel_f)], use_container_width=True)
-        with low2:
-            st.subheader("🕒 Service History")
-            s_fab = next((c for c in service.columns if 'fabrication' in str(c).lower()), service.columns[0])
-            st.dataframe(service[service[s_fab].astype(str) == str(sel_f)], use_container_width=True)
+        st.subheader("Overdue Service")
+        st.dataframe(overdue)
 
-# --- FIX 2: OVERDUE SERVICE LIST ---
-elif choice == "⏳ Overdue Service":
-    st.title("⏳ Overdue Service List (Industrial)")
-    
-    # 1. Sabse pehle 'RED' ya 'Overdue' keywords wala column dhoondna
-    over_c = next((c for c in master_od.columns if any(k in str(c).lower() for k in ['overdue', 'red count', 'pending count'])), None)
-    
-    if over_c:
-        # 2. Data Cleaning: Text values ko numeric banana (errors='coerce' se non-numbers 0 ban jayenge)
-        master_od[over_c] = pd.to_numeric(master_od[over_c], errors='coerce').fillna(0)
-        
-        # 3. Filter: Jinki value 0 se zyada hai
-        overdue_df = master_od[master_od[over_c] > 0]
-        
-        if not overdue_df.empty:
-            st.warning(f"🚨 Total {len(overdue_df)} Industrial machines overdue mili hain!")
-            # 4. Sahi columns dikhana (Customer, Fab Number, aur Overdue Count)
-            st.dataframe(overdue_df, use_container_width=True)
-            st.download_button("📥 Export Overdue List", to_excel(overdue_df), "Industrial_Overdue_Report.xlsx")
-        else:
-            st.success("✅ Sab sahi hai! Excel ke mutabik koi overdue machine nahi hai.")
-            # Debugging ke liye: Agar list khali hai toh dikhao ki system ne kaunsa column pick kiya
-            with st.expander("🔍 System Debug Info"):
-                st.write(f"System ne '{over_c}' column ko detect kiya hai.")
-    else:
-        st.error("🚨 Overdue column nahi mila! Excel mein check karein ki 'Overdue' ya 'Red' naam ka column hai ya nahi.")
+    # Export
+    if role != "viewer":
+        st.download_button("Excel", to_excel(df), "dpsac.xlsx")
+        st.download_button("PDF", to_pdf(df), "dpsac.pdf")
 
-# --- FIX 3: AUTOMATION CENTRE WHATSAPP ---
-elif choice == "📢 Automation Center":
-    st.title("📢 Automation Center")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("📱 WhatsApp Alert")
-        msg = st.text_area("Message:", "ELGi Industrial Service Alert: Your machine is overdue.")
-        wa_link = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-        st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">📱 Open WhatsApp</button></a>', unsafe_allow_html=True)
-    with c2:
-        st.subheader("✉️ Email Draft")
-        mail_link = "mailto:crm@primepower.in?subject=Industrial Service Report&body=Check overdue machines."
-        st.markdown(f'<a href="{mail_link}"><button style="background-color:#0078D4; color:white; padding:12px; border-radius:5px; width:100%; cursor:pointer; font-weight:bold;">✉️ Prepare Email Draft</button></a>', unsafe_allow_html=True)
+# ==============================
+# INDUSTRIAL TRACKER
+# ==============================
+else:
 
-elif choice == "📦 Full FOC List":
-    st.dataframe(foc, use_container_width=True)
+    st.title("🏭 Industrial Tracker")
+
+    customers = ["All"] + sorted(od[cust_col_od].astype(str).unique())
+    sel = st.selectbox("Customer", customers)
+
+    df = od if sel == "All" else od[od[cust_col_od] == sel]
+
+    # Tracker
+    sel_f = st.selectbox("Fabrication", ["Select"] + list(df[fab_col_od].astype(str).unique()))
+
+    if sel_f != "Select":
+        st.dataframe(df[df[fab_col_od] == sel_f])
+
+    # FOC
+    st.subheader("Industrial FOC List")
+    st.dataframe(foc)
+
+    # Overdue
+    if over_col_od:
+        od[over_col_od] = pd.to_numeric(od[over_col_od], errors='coerce').fillna(0)
+        overdue = od[od[over_col_od] > 0]
+
+        st.subheader("Industrial Overdue")
+        st.dataframe(overdue)
+
+    # Export
+    if role != "viewer":
+        st.download_button("Excel", to_excel(df), "industrial.xlsx")
+        st.download_button("PDF", to_pdf(df), "industrial.pdf")
+
+# ==============================
+# ALERT
+# ==============================
+st.subheader("📢 WhatsApp Alert")
+
+msg = st.text_area("Message", "Service Due Alert")
+
+if role != "viewer":
+    wa = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
+    st.markdown(f"[Send WhatsApp]({wa})")
+else:
+    st.info("Viewer Mode: Alert disabled")

@@ -1,17 +1,14 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from io import BytesIO
-import urllib.parse
 from reportlab.platypus import SimpleDocTemplate, Table
 from reportlab.lib import colors
 
-# ==============================
-# CONFIG
-# ==============================
 st.set_page_config(layout="wide")
 
 # ==============================
-# LOGIN (WITH VIEWER)
+# LOGIN SYSTEM
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "admin"},
@@ -20,7 +17,7 @@ USER_DB = {
 }
 
 if "login" not in st.session_state:
-    st.title("🔐 ELGi Login")
+    st.title("🔐 Industrial Tracker Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
@@ -28,7 +25,6 @@ if "login" not in st.session_state:
         if u in USER_DB and USER_DB[u]["pass"] == p:
             st.session_state["login"] = True
             st.session_state["role"] = USER_DB[u]["role"]
-            st.session_state["user"] = u
             st.rerun()
         else:
             st.error("Invalid Login")
@@ -47,6 +43,7 @@ def to_excel(df):
 def to_pdf(df):
     buf = BytesIO()
     doc = SimpleDocTemplate(buf)
+
     data = [df.columns.tolist()] + df.astype(str).values.tolist()
 
     table = Table(data)
@@ -61,131 +58,146 @@ def to_pdf(df):
 # ==============================
 # LOAD DATA
 # ==============================
-master = pd.read_excel("Master_Data.xlsx")
-od = pd.read_excel("Master_OD_Data.xlsx")
+df = pd.read_excel("Master_OD_Data.xlsx")
 foc = pd.read_excel("Active_FOC.xlsx")
 
-master.columns = master.columns.str.strip()
-od.columns = od.columns.str.strip()
+df.columns = df.columns.str.strip()
 foc.columns = foc.columns.str.strip()
 
 # ==============================
 # COLUMN DETECT
 # ==============================
-cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
-status_col = next((c for c in master.columns if "status" in c.lower()), None)
-cat_col = next((c for c in master.columns if "category" in c.lower()), None)
-fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
-over_col = next((c for c in master.columns if "over" in c.lower()), None)
+cust_col = next((c for c in df.columns if "customer" in c.lower()), df.columns[0])
+fab_col = next((c for c in df.columns if "fabrication" in c.lower()), df.columns[1])
+status_col = next((c for c in df.columns if "status" in c.lower()), None)
 
-cust_col_od = next((c for c in od.columns if "customer" in c.lower()), od.columns[0])
-fab_col_od = next((c for c in od.columns if "fabrication" in c.lower()), od.columns[1])
-over_col_od = next((c for c in od.columns if "over" in c.lower()), None)
+red_col = next((c for c in df.columns if "red" in c.lower()), None)
+yellow_col = next((c for c in df.columns if "yellow" in c.lower()), None)
+green_col = next((c for c in df.columns if "green" in c.lower()), None)
+
+w_col = next((c for c in df.columns if "warranty start" in c.lower()), None)
+amc_col = next((c for c in df.columns if "amc" in c.lower()), None)
+priority_col = next((c for c in df.columns if "priority" in c.lower()), None)
+over_col = next((c for c in df.columns if "over" in c.lower()), None)
 
 # ==============================
-# SIDEBAR
+# SIDEBAR FILTER
 # ==============================
 st.sidebar.title(f"👋 {st.session_state['user']} ({role})")
 
-menu = st.sidebar.radio("Select Tracker", ["DPSAC Tracker", "Industrial Tracker"])
+customers = ["All"] + sorted(df[cust_col].astype(str).unique())
+sel = st.sidebar.selectbox("Customer", customers)
+
+df_f = df if sel == "All" else df[df[cust_col] == sel]
 
 # ==============================
-# DPSAC TRACKER
+# DASHBOARD
 # ==============================
-if menu == "DPSAC Tracker":
+st.title("🏭 Industrial Dashboard")
 
-    st.title("📊 DPSAC Dashboard")
+total = len(df_f)
+active = len(df_f[df_f[status_col].str.contains("active", case=False, na=False)]) if status_col else 0
 
-    customers = ["All"] + sorted(master[cust_col].astype(str).unique())
-    sel = st.selectbox("Customer", customers)
+c1,c2 = st.columns(2)
+c1.metric("Total Units", total)
+c2.metric("Active Units", active)
 
-    df = master if sel == "All" else master[master[cust_col] == sel]
+# ==============================
+# HEALTH COUNT
+# ==============================
+st.subheader("🚦 Health Status")
 
-    # KPI
-    total = len(df)
-    active = len(df[df[status_col].str.contains("active", case=False, na=False)])
-    shifted = len(df[df[status_col].str.contains("shifted", case=False, na=False)])
-    sold = len(df[df[status_col].str.contains("sold", case=False, na=False)])
+c1,c2,c3 = st.columns(3)
+
+c1.metric("🔴 Red", int(df_f[red_col].sum()) if red_col else 0)
+c2.metric("🟡 Yellow", int(df_f[yellow_col].sum()) if yellow_col else 0)
+c3.metric("🟢 Green", int(df_f[green_col].sum()) if green_col else 0)
+
+# ==============================
+# WARRANTY EXPIRED
+# ==============================
+if w_col:
+    df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
+    df_f["Warranty End"] = df_f[w_col] + pd.DateOffset(years=1)
+
+    expired = df_f[df_f["Warranty End"] < datetime.today()]
+
+    st.subheader("📅 Monthly Warranty Expired")
+    st.dataframe(expired, use_container_width=True)
+
+# ==============================
+# AMC EXPIRED
+# ==============================
+if amc_col:
+    st.subheader("📆 AMC Expired Units")
+    st.dataframe(df_f[[cust_col, fab_col, amc_col]], use_container_width=True)
+
+# ==============================
+# PRIORITY VISITS
+# ==============================
+if priority_col:
+    st.subheader("🚨 Priority Visits")
+    st.dataframe(df_f[df_f[priority_col].notna()], use_container_width=True)
+
+# ==============================
+# MACHINE TRACKER
+# ==============================
+st.subheader("🔍 Machine Tracker")
+
+sel_f = st.selectbox("Select Fabrication", ["Select"] + list(df_f[fab_col].astype(str).unique()))
+
+if sel_f != "Select":
+    row = df_f[df_f[fab_col] == sel_f].iloc[0]
 
     c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Total", total)
-    c2.metric("Active", active)
-    c3.metric("Shifted", shifted)
-    c4.metric("Sold", sold)
 
-    # Category
-    if cat_col:
-        st.subheader("Category Count")
-        st.dataframe(df[cat_col].value_counts())
+    with c1:
+        st.markdown("### 📋 Info")
+        st.write("Customer:", row[cust_col])
 
-    # Machine Tracker
-    st.subheader("Machine Tracker")
-    sel_f = st.selectbox("Fabrication", ["Select"] + list(df[fab_col].astype(str).unique()))
+    with c2:
+        st.markdown("### 🔧 Replacement Dates")
+        for col in df.columns:
+            if "r date" in col.lower():
+                st.write(col, row[col])
 
-    if sel_f != "Select":
-        st.dataframe(df[df[fab_col] == sel_f])
+    with c3:
+        st.markdown("### ⏳ Remaining Hours")
+        for col in df.columns:
+            if "rem" in col.lower():
+                st.write(col, row[col])
 
-    # FOC
-    st.subheader("FOC List")
-    st.dataframe(foc)
-
-    # Overdue
-    if over_col:
-        master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
-        overdue = master[master[over_col] > 0]
-
-        st.subheader("Overdue Service")
-        st.dataframe(overdue)
-
-    # Export
-    if role != "viewer":
-        st.download_button("Excel", to_excel(df), "dpsac.xlsx")
-        st.download_button("PDF", to_pdf(df), "dpsac.pdf")
+    with c4:
+        st.markdown("### 🚨 Due Dates")
+        for col in df.columns:
+            if "due" in col.lower():
+                st.write(col, row[col])
 
 # ==============================
-# INDUSTRIAL TRACKER
+# FOC LIST
 # ==============================
-else:
+st.subheader("🎁 FOC List")
 
-    st.title("🏭 Industrial Tracker")
-
-    customers = ["All"] + sorted(od[cust_col_od].astype(str).unique())
-    sel = st.selectbox("Customer", customers)
-
-    df = od if sel == "All" else od[od[cust_col_od] == sel]
-
-    # Tracker
-    sel_f = st.selectbox("Fabrication", ["Select"] + list(df[fab_col_od].astype(str).unique()))
-
-    if sel_f != "Select":
-        st.dataframe(df[df[fab_col_od] == sel_f])
-
-    # FOC
-    st.subheader("Industrial FOC List")
-    st.dataframe(foc)
-
-    # Overdue
-    if over_col_od:
-        od[over_col_od] = pd.to_numeric(od[over_col_od], errors='coerce').fillna(0)
-        overdue = od[od[over_col_od] > 0]
-
-        st.subheader("Industrial Overdue")
-        st.dataframe(overdue)
-
-    # Export
-    if role != "viewer":
-        st.download_button("Excel", to_excel(df), "industrial.xlsx")
-        st.download_button("PDF", to_pdf(df), "industrial.pdf")
+foc_cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date","customer"])]
+st.dataframe(foc[foc_cols], use_container_width=True)
 
 # ==============================
-# ALERT
+# OVERDUE
 # ==============================
-st.subheader("📢 WhatsApp Alert")
+if over_col:
+    df[over_col] = pd.to_numeric(df[over_col], errors='coerce').fillna(0)
+    overdue = df[df[over_col] > 0]
 
-msg = st.text_area("Message", "Service Due Alert")
+    st.subheader("⏳ Overdue Service")
+    st.dataframe(overdue, use_container_width=True)
+
+# ==============================
+# EXPORT
+# ==============================
+st.subheader("📥 Export")
 
 if role != "viewer":
-    wa = f"https://wa.me/917061158953?text={urllib.parse.quote(msg)}"
-    st.markdown(f"[Send WhatsApp]({wa})")
+    st.download_button("📊 Excel", to_excel(df_f), "industrial.xlsx")
+    st.download_button("📄 PDF", to_pdf(df_f), "industrial.pdf")
 else:
-    st.info("Viewer Mode: Alert disabled")
+    st.info("👁️ Viewer Mode: Export disabled")

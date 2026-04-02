@@ -8,14 +8,18 @@ from reportlab.lib import colors
 st.set_page_config(layout="wide")
 
 # ==============================
-# LOGIN SYSTEM (SAFE)
+# 🔐 SECURE LOGIN (NO BYPASS)
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "admin"},
+    "user": {"pass": "123", "role": "user"},
     "viewer": {"pass": "demo", "role": "viewer"}
 }
 
 if "login" not in st.session_state:
+    st.session_state["login"] = False
+
+if not st.session_state["login"]:
 
     st.title("🔐 Industrial Tracker Login")
 
@@ -25,16 +29,28 @@ if "login" not in st.session_state:
     if st.button("Login"):
         if u in USER_DB and USER_DB[u]["pass"] == p:
             st.session_state["login"] = True
-            st.session_state["role"] = USER_DB[u]["role"]
             st.session_state["user"] = u
+            st.session_state["role"] = USER_DB[u]["role"]
             st.rerun()
         else:
-            st.error("Invalid Login")
+            st.error("❌ Invalid Username or Password")
 
     st.stop()
 
+# ==============================
+# SESSION SAFE
+# ==============================
 user = st.session_state.get("user", "Guest")
 role = st.session_state.get("role", "viewer")
+
+# ==============================
+# LOGOUT
+# ==============================
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.clear()
+    st.rerun()
+
+st.sidebar.title(f"👋 {user} ({role})")
 
 # ==============================
 # EXPORT FUNCTIONS
@@ -86,10 +102,8 @@ if cust_col is None:
     st.stop()
 
 # ==============================
-# SIDEBAR
+# FILTER
 # ==============================
-st.sidebar.title(f"👋 {user} ({role})")
-
 try:
     customers = ["All"] + sorted(df[cust_col].dropna().astype(str).unique().tolist())
 except:
@@ -130,7 +144,7 @@ c2.metric("🟡 Yellow", int(pd.to_numeric(df_f.get(yellow_col, 0), errors='coer
 c3.metric("🟢 Green", int(pd.to_numeric(df_f.get(green_col, 0), errors='coerce').sum()))
 
 # ==============================
-# WARRANTY
+# WARRANTY EXPIRED
 # ==============================
 w_col = next((c for c in df.columns if "warranty start" in c.lower()), None)
 
@@ -144,7 +158,7 @@ if w_col:
     st.dataframe(expired, use_container_width=True)
 
 # ==============================
-# AMC
+# AMC EXPIRED
 # ==============================
 amc_col = next((c for c in df.columns if "amc" in c.lower()), None)
 
@@ -153,7 +167,7 @@ if amc_col:
     st.dataframe(df_f[[cust_col, fab_col, amc_col]], use_container_width=True)
 
 # ==============================
-# PRIORITY
+# PRIORITY VISITS
 # ==============================
 priority_col = next((c for c in df.columns if "priority" in c.lower()), None)
 
@@ -179,7 +193,7 @@ st.subheader("🎁 FOC List")
 st.dataframe(foc, use_container_width=True)
 
 # ==============================
-# OVERDUE
+# OVERDUE SERVICE
 # ==============================
 over_col = next((c for c in df.columns if "over" in c.lower()), None)
 
@@ -196,7 +210,7 @@ if over_col:
 st.subheader("📥 Export")
 
 if role != "viewer":
-    st.download_button("📊 Excel", to_excel(df_f), "industrial.xlsx")
-    st.download_button("📄 PDF", to_pdf(df_f), "industrial.pdf")
+    st.download_button("📊 Download Excel", to_excel(df_f), "industrial.xlsx")
+    st.download_button("📄 Download PDF", to_pdf(df_f), "industrial.pdf")
 else:
-    st.info("Viewer Mode: Export disabled")
+    st.info("👁️ Viewer Mode: Export disabled")

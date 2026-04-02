@@ -8,32 +8,41 @@ from reportlab.lib import colors
 st.set_page_config(layout="wide")
 
 # ==============================
-# LOGIN SYSTEM
+# LOGIN SYSTEM (FIXED)
 # ==============================
 USER_DB = {
     "admin": {"pass": "admin123", "role": "admin"},
-    "user": {"pass": "123", "role": "user"},
     "viewer": {"pass": "demo", "role": "viewer"}
 }
 
 if "login" not in st.session_state:
-    st.title("🔐 Industrial Tracker Login")
+
+    st.title("🔐 Industrial Login")
+
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
         if u in USER_DB and USER_DB[u]["pass"] == p:
+
             st.session_state["login"] = True
             st.session_state["role"] = USER_DB[u]["role"]
+            st.session_state["user"] = u   # ✅ FIX
+
             st.rerun()
         else:
             st.error("Invalid Login")
+
     st.stop()
 
-role = st.session_state["role"]
+# ==============================
+# SAFE SESSION (NO ERROR)
+# ==============================
+user = st.session_state.get("user", "Guest")
+role = st.session_state.get("role", "viewer")
 
 # ==============================
-# EXPORT FUNCTIONS
+# EXPORT
 # ==============================
 def to_excel(df):
     buf = BytesIO()
@@ -81,9 +90,9 @@ priority_col = next((c for c in df.columns if "priority" in c.lower()), None)
 over_col = next((c for c in df.columns if "over" in c.lower()), None)
 
 # ==============================
-# SIDEBAR FILTER
+# SIDEBAR
 # ==============================
-st.sidebar.title(f"👋 {st.session_state['user']} ({role})")
+st.sidebar.title(f"👋 {user} ({role})")
 
 customers = ["All"] + sorted(df[cust_col].astype(str).unique())
 sel = st.sidebar.selectbox("Customer", customers)
@@ -98,7 +107,7 @@ st.title("🏭 Industrial Dashboard")
 total = len(df_f)
 active = len(df_f[df_f[status_col].str.contains("active", case=False, na=False)]) if status_col else 0
 
-c1,c2 = st.columns(2)
+c1, c2 = st.columns(2)
 c1.metric("Total Units", total)
 c2.metric("Active Units", active)
 
@@ -107,14 +116,13 @@ c2.metric("Active Units", active)
 # ==============================
 st.subheader("🚦 Health Status")
 
-c1,c2,c3 = st.columns(3)
-
+c1, c2, c3 = st.columns(3)
 c1.metric("🔴 Red", int(df_f[red_col].sum()) if red_col else 0)
 c2.metric("🟡 Yellow", int(df_f[yellow_col].sum()) if yellow_col else 0)
 c3.metric("🟢 Green", int(df_f[green_col].sum()) if green_col else 0)
 
 # ==============================
-# WARRANTY EXPIRED
+# WARRANTY
 # ==============================
 if w_col:
     df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
@@ -122,64 +130,38 @@ if w_col:
 
     expired = df_f[df_f["Warranty End"] < datetime.today()]
 
-    st.subheader("📅 Monthly Warranty Expired")
-    st.dataframe(expired, use_container_width=True)
+    st.subheader("📅 Warranty Expired")
+    st.dataframe(expired)
 
 # ==============================
-# AMC EXPIRED
+# AMC
 # ==============================
 if amc_col:
-    st.subheader("📆 AMC Expired Units")
-    st.dataframe(df_f[[cust_col, fab_col, amc_col]], use_container_width=True)
+    st.subheader("📆 AMC Expired")
+    st.dataframe(df_f[[cust_col, fab_col, amc_col]])
 
 # ==============================
-# PRIORITY VISITS
+# PRIORITY
 # ==============================
 if priority_col:
     st.subheader("🚨 Priority Visits")
-    st.dataframe(df_f[df_f[priority_col].notna()], use_container_width=True)
+    st.dataframe(df_f[df_f[priority_col].notna()])
 
 # ==============================
 # MACHINE TRACKER
 # ==============================
 st.subheader("🔍 Machine Tracker")
 
-sel_f = st.selectbox("Select Fabrication", ["Select"] + list(df_f[fab_col].astype(str).unique()))
+sel_f = st.selectbox("Fabrication", ["Select"] + list(df_f[fab_col].astype(str).unique()))
 
 if sel_f != "Select":
-    row = df_f[df_f[fab_col] == sel_f].iloc[0]
-
-    c1,c2,c3,c4 = st.columns(4)
-
-    with c1:
-        st.markdown("### 📋 Info")
-        st.write("Customer:", row[cust_col])
-
-    with c2:
-        st.markdown("### 🔧 Replacement Dates")
-        for col in df.columns:
-            if "r date" in col.lower():
-                st.write(col, row[col])
-
-    with c3:
-        st.markdown("### ⏳ Remaining Hours")
-        for col in df.columns:
-            if "rem" in col.lower():
-                st.write(col, row[col])
-
-    with c4:
-        st.markdown("### 🚨 Due Dates")
-        for col in df.columns:
-            if "due" in col.lower():
-                st.write(col, row[col])
+    st.dataframe(df_f[df_f[fab_col] == sel_f])
 
 # ==============================
-# FOC LIST
+# FOC
 # ==============================
 st.subheader("🎁 FOC List")
-
-foc_cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date","customer"])]
-st.dataframe(foc[foc_cols], use_container_width=True)
+st.dataframe(foc)
 
 # ==============================
 # OVERDUE
@@ -188,16 +170,14 @@ if over_col:
     df[over_col] = pd.to_numeric(df[over_col], errors='coerce').fillna(0)
     overdue = df[df[over_col] > 0]
 
-    st.subheader("⏳ Overdue Service")
-    st.dataframe(overdue, use_container_width=True)
+    st.subheader("⏳ Overdue")
+    st.dataframe(overdue)
 
 # ==============================
 # EXPORT
 # ==============================
-st.subheader("📥 Export")
-
 if role != "viewer":
     st.download_button("📊 Excel", to_excel(df_f), "industrial.xlsx")
     st.download_button("📄 PDF", to_pdf(df_f), "industrial.pdf")
 else:
-    st.info("👁️ Viewer Mode: Export disabled")
+    st.info("Viewer Mode: Export disabled")

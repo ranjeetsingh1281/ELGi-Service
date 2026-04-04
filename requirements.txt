@@ -9,3 +9,5 @@ supabase
 plotly
 reportlab
 requests
+openai
+speechrecognition

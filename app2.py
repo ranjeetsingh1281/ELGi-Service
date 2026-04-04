@@ -41,6 +41,51 @@ role = st.session_state["role"]
 
 st.sidebar.title(f"👋 {user} ({role})")
 
+
+def generate_report(df):
+
+    total = len(df)
+
+    # Active
+    active = 0
+    status_col = next((c for c in df.columns if "status" in c.lower()), None)
+
+    if status_col:
+        active = len(df[df[status_col].astype(str).str.contains("active", case=False)])
+
+    # Warranty
+    w_col = next((c for c in df.columns if "warranty start" in c.lower()), None)
+
+    warranty_expired = 0
+    if w_col:
+        df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
+        df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
+        warranty_expired = len(df[df["Warranty End"] < pd.Timestamp.today()])
+
+    # AMC
+    amc_col = next((c for c in df.columns if "amc" in c.lower()), None)
+
+    amc_expired = 0
+    if amc_col:
+        df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
+        amc_expired = len(df[df[amc_col] < pd.Timestamp.today()])
+
+    report = f"""
+📊 INDUSTRIAL REPORT
+
+Total Machines: {total}
+Active Machines: {active}
+
+Warranty Expired: {warranty_expired}
+AMC Expired: {amc_expired}
+
+🔧 Recommendation:
+- Check overdue machines urgently
+- Focus on high priority visits
+- Plan preventive maintenance
+"""
+
+    return report
 # ================= LOAD =================
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 foc = pd.read_excel("Active_FOC.xlsx").fillna("")

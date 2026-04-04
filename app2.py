@@ -6,7 +6,7 @@ from reportlab.platypus import SimpleDocTemplate, Table
 from reportlab.lib import colors
 
 import openai
-
+import speech_recognition as sr
 openai.api_key = "YOUR_API_KEY"
 
 def ask_ai(question, df):

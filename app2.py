@@ -5,6 +5,36 @@ from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Table
 from reportlab.lib import colors
 
+import openai
+
+openai.api_key = "YOUR_API_KEY"
+
+def ask_ai(question, df):
+
+    sample = df.head(20).to_string()
+
+    prompt = f"""
+    You are an industrial maintenance assistant.
+
+    Data:
+    {sample}
+
+    Question:
+    {question}
+
+    Give clear answer.
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"Error: {e}"
 st.set_page_config(layout="wide")
 
 # ==============================

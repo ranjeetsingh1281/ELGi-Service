@@ -4,7 +4,6 @@ from datetime import datetime
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Table
 from reportlab.lib import colors
-import openai
 import speech_recognition as sr
 import os
 
@@ -33,7 +32,6 @@ if not st.session_state["login"]:
             st.rerun()
         else:
             st.error("Invalid Login")
-
     st.stop()
 
 user = st.session_state["user"]
@@ -41,57 +39,14 @@ role = st.session_state["role"]
 
 st.sidebar.title(f"👋 {user} ({role})")
 
-
-def generate_report(df):
-
-    total = len(df)
-
-    # Active
-    active = 0
-    status_col = next((c for c in df.columns if "status" in c.lower()), None)
-
-    if status_col:
-        active = len(df[df[status_col].astype(str).str.contains("active", case=False)])
-
-    # Warranty
-    w_col = next((c for c in df.columns if "warranty start" in c.lower()), None)
-
-    warranty_expired = 0
-    if w_col:
-        df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
-        df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
-        warranty_expired = len(df[df["Warranty End"] < pd.Timestamp.today()])
-
-    # AMC
-    amc_col = next((c for c in df.columns if "amc" in c.lower()), None)
-
-    amc_expired = 0
-    if amc_col:
-        df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
-        amc_expired = len(df[df[amc_col] < pd.Timestamp.today()])
-
-    report = f"""
-📊 INDUSTRIAL REPORT
-
-Total Machines: {total}
-Active Machines: {active}
-
-Warranty Expired: {warranty_expired}
-AMC Expired: {amc_expired}
-
-🔧 Recommendation:
-- Check overdue machines urgently
-- Focus on high priority visits
-- Plan preventive maintenance
-"""
-
-    return report
 # ================= LOAD =================
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 foc = pd.read_excel("Active_FOC.xlsx").fillna("")
 service = pd.read_excel("Service_Details.xlsx").fillna("")
 
 df.columns = df.columns.str.strip()
+foc.columns = foc.columns.str.strip()
+service.columns = service.columns.str.strip()
 
 # ================= COLUMN =================
 cust_col = next((c for c in df.columns if "customer" in c.lower()), None)
@@ -101,7 +56,6 @@ cat_col = next((c for c in df.columns if "category" in c.lower()), None)
 
 w_col = next((c for c in df.columns if "warranty start" in c.lower()), None)
 amc_col = next((c for c in df.columns if "amc" in c.lower()), None)
-priority_col = next((c for c in df.columns if "priority" in c.lower()), None)
 
 red_col = next((c for c in df.columns if "red" in c.lower()), None)
 yellow_col = next((c for c in df.columns if "yellow" in c.lower()), None)
@@ -111,11 +65,12 @@ green_col = next((c for c in df.columns if "green" in c.lower()), None)
 customers = ["All"] + sorted(df[cust_col].astype(str).unique())
 sel = st.sidebar.selectbox("Customer", customers)
 
-df_f = df if sel == "All" else df[df[cust_col] == sel]
+df_f = df if sel == "All" else df[df[cust_col].astype(str) == sel]
 
-# ================= SIDEBAR COUNTS =================
+# ================= SIDEBAR =================
 st.sidebar.subheader("📊 Unit Count")
-st.sidebar.write(df_f[status_col].value_counts())
+if status_col:
+    st.sidebar.write(df_f[status_col].value_counts())
 
 if cat_col:
     st.sidebar.subheader("📊 Category Count")
@@ -126,7 +81,7 @@ st.title("🏭 Industrial Dashboard")
 
 c1,c2 = st.columns(2)
 c1.metric("Total Units", len(df_f))
-c2.metric("Active Units", len(df_f[df_f[status_col].str.contains("active", case=False)]))
+c2.metric("Active Units", len(df_f[df_f[status_col].astype(str).str.contains("active", case=False)]) if status_col else 0)
 
 # ================= HEALTH =================
 st.subheader("🚦 Health")
@@ -143,7 +98,6 @@ year = st.sidebar.selectbox("Year", [2023,2024,2025,2026])
 if w_col:
     df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
     df_f["Warranty End"] = df_f[w_col] + pd.DateOffset(years=1)
-
     df_w = df_f[df_f["Warranty End"].dt.year == year]
     st.sidebar.write(df_w["Warranty End"].dt.month.value_counts().sort_index())
 
@@ -155,61 +109,81 @@ if amc_col:
     df_amc = df_f[df_f[amc_col] < datetime.today()]
     st.sidebar.write(df_amc[amc_col].dt.month.value_counts().sort_index())
 
-# ================= MACHINE =================
+# ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 
-sel_f = st.selectbox("Fabrication", ["Select"] + list(df_f[fab_col].astype(str).unique()))
+df_f[fab_col] = df_f[fab_col].astype(str)
+
+sel_f = st.selectbox("Fabrication", ["Select"] + list(df_f[fab_col].unique()))
 
 if sel_f != "Select":
 
-    row = df_f[df_f[fab_col]==sel_f].iloc[0]
-    st.dataframe(pd.DataFrame([row]))
+    filtered = df_f[df_f[fab_col] == sel_f]
 
-    # FOC
-    foc_fab = next((c for c in foc.columns if "fabrication" in c.lower()), None)
-    st.subheader("🎁 FOC")
-    st.dataframe(foc[foc[foc_fab]==sel_f])
+    if not filtered.empty:
 
-    # SERVICE
-    srv_fab = next((c for c in service.columns if "fabrication" in c.lower()), None)
-    st.subheader("🛠 Service")
-    st.dataframe(service[service[srv_fab]==sel_f])
+        row = filtered.iloc[0]
+        st.dataframe(pd.DataFrame([row]))
 
-    # AI Prediction
-    st.subheader("🤖 AI Prediction")
-    try:
-        hmr = float(row.get("HMR",0))
-        st.success(f"Next Service ~ {int(hmr+500)} Hrs")
-    except:
-        st.info("No data")
+        # FOC
+        foc_fab = next((c for c in foc.columns if "fabrication" in c.lower()), None)
 
-# ================= AI CHAT =================
-openai.api_key = os.getenv("OPENAI_API_KEY","YOUR_API_KEY")
+        if foc_fab:
+            foc_filtered = foc[foc[foc_fab].astype(str) == sel_f]
 
-def ask_ai(q):
-    return openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content":q}]
-    ).choices[0].message.content
+            foc_cols = ["Created on","FOC No","Part No","Description","FOC Status","ELGi Invoice No"]
 
-st.subheader("🤖 AI Chatbot")
+            st.subheader("🎁 FOC List")
+            st.dataframe(foc_filtered[[c for c in foc_cols if c in foc.columns]])
 
-q = st.text_input("Ask")
+        # SERVICE
+        srv_fab = next((c for c in service.columns if "fabrication" in c.lower()), None)
 
-if st.button("Ask AI"):
-    st.success(ask_ai(q))
+        if srv_fab:
+            srv_filtered = service[service[srv_fab].astype(str) == sel_f]
+
+            srv_cols = ["Created on","Call No","HMR","Call Type","Service Engineer Comments"]
+
+            st.subheader("🛠 Service History")
+            st.dataframe(srv_filtered[[c for c in srv_cols if c in service.columns]])
+
+        # AI Prediction
+        st.subheader("🤖 AI Prediction")
+
+        try:
+            hmr = float(row.get("HMR",0))
+            st.success(f"Next Service ~ {int(hmr+500)} Hrs")
+        except:
+            st.info("No data")
+
+    else:
+        st.warning("No data found")
 
 # ================= AI REPORT =================
+def generate_report(df):
+    return f"""
+Total Machines: {len(df)}
+Active Machines: {len(df[df[status_col].astype(str).str.contains('active', case=False)]) if status_col else 0}
+"""
+
 st.subheader("📊 AI Report")
 
 if st.button("Generate Report"):
-    st.success(ask_ai("Generate maintenance summary"))
+    st.success(generate_report(df_f))
+
+# ================= AI CHAT =================
+st.subheader("🤖 AI Chatbot")
+
+q = st.text_input("Ask something")
+
+if st.button("Ask AI"):
+    st.success(f"Answer: {q}")
 
 # ================= VOICE =================
 def listen():
     r = sr.Recognizer()
     with sr.Microphone() as source:
-        st.info("🎤 बोलो...")
+        st.info("🎤 Speak...")
         audio = r.listen(source)
     try:
         return r.recognize_google(audio)
@@ -221,4 +195,3 @@ st.subheader("🎤 Voice")
 if st.button("Start Voice"):
     cmd = listen()
     st.write(cmd)
-    st.success(ask_ai(cmd))

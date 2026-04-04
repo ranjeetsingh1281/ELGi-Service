@@ -230,3 +230,14 @@ if sel_f != "Select":
         st.success(f"Next Service ~ {int(pred)} Hrs")
     except:
         st.info("Not enough data")
+
+#================================
+# 🤖 AI
+#================================
+st.subheader("🤖 AI Chatboat")
+
+q = st.text_input("Ask anything...")
+
+if st.button("Ask"):
+     ans = Chatboat(q, df)
+     st.success(ans)

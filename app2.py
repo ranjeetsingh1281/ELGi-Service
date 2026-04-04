@@ -7,34 +7,7 @@ from reportlab.lib import colors
 
 import openai
 import speech_recognition as sr
-openai.api_key = "YOUR_API_KEY"
 
-def ask_ai(question, df):
-
-    sample = df.head(20).to_string()
-
-    prompt = f"""
-    You are an industrial maintenance assistant.
-
-    Data:
-    {sample}
-
-    Question:
-    {question}
-
-    Give clear answer.
-    """
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        return response.choices[0].message.content
-
-    except Exception as e:
-        return f"Error: {e}"
 st.set_page_config(layout="wide")
 
 # ==============================
@@ -74,6 +47,38 @@ if st.sidebar.button("🚪 Logout"):
     st.rerun()
 
 st.sidebar.title(f"👋 {user} ({role})")
+
+#===============================
+#AI REPORT FUNCTION 
+#===============================
+openai.api_key = "YOUR_API_KEY"
+
+def ask_ai(question, df):
+
+    sample = df.head(20).to_string()
+
+    prompt = f"""
+    You are an industrial maintenance assistant.
+
+    Data:
+    {sample}
+
+    Question:
+    {question}
+
+    Give clear answer.
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return str(e)
 
 # ==============================
 # 📥 EXPORT FUNCTIONS
@@ -138,6 +143,44 @@ c1, c2 = st.columns(2)
 c1.metric("Total Units", len(df_f))
 c2.metric("Active Units", len(df_f[df_f[status_col].str.contains("active", case=False)]) if status_col else 0)
 
+#===============================
+# 📊 AI REPORT FUNCTION 
+#===============================
+
+st.subheader("📊 AI Smart Report")
+
+if st.button("Generate AI Report"):
+
+    report = generate_report(df_f)
+
+    st.success("Report Generated")
+    st.write(report)
+
+    st.download_button(
+        "Download Report",
+        report,
+        file_name="AI_Report.txt"
+    )
+
+
+#===============================
+#🎤 VOICE DASHBOARD IU
+#===============================
+
+st.subheader("🎤 Voice Control")
+
+if st.button("Start Voice Command"):
+
+    cmd = listen_voice()
+
+    st.write("You said:", cmd)
+
+    result = voice_actions(cmd, df_f)
+
+    if isinstance(result, str):
+        st.success(result)
+    else:
+        st.dataframe(result)
 # ==============================
 # 🚦 HEALTH
 # ==============================
@@ -241,3 +284,36 @@ q = st.text_input("Ask anything...")
 if st.button("Ask"):
      ans = Chatboat(q, df)
      st.success(ans)
+
+#=================================
+# VOICE FUNCTION 
+#=================================
+
+def listen_voice():
+    r = sr.Recognizer()
+
+    with sr.Microphone() as source:
+        st.info("🎤 बोलो Boss...")
+        audio = r.listen(source)
+
+    try:
+        return r.recognize_google(audio, language="en-IN").lower()
+    except:
+        return ""
+
+
+def voice_actions(cmd, df):
+
+    if "report" in cmd:
+        return generate_report(df)
+
+    if "overdue" in cmd:
+        col = next((c for c in df.columns if "over" in c.lower()), None)
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        return df[df[col] > 0]
+
+    if "priority" in cmd:
+        col = next((c for c in df.columns if "priority" in c.lower()), None)
+        return df[df[col].astype(str).str.contains("high", case=False)]
+
+    return "Command not recognized"

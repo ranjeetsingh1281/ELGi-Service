@@ -4,9 +4,9 @@ from datetime import datetime
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Table
 from reportlab.lib import colors
-
 import openai
 import speech_recognition as sr
+import os
 
 st.set_page_config(layout="wide")
 
@@ -51,7 +51,7 @@ st.sidebar.title(f"👋 {user} ({role})")
 #===============================
 #AI REPORT FUNCTION 
 #===============================
-openai.api_key = "YOUR_API_KEY"
+openai.api_key = os.getenv("OPENAI_API_KEY","YOUR_API_KEY")
 
 def ask_ai(question, df):
 

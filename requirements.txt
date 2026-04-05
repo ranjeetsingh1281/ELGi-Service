@@ -11,3 +11,4 @@ reportlab
 requests
 openai
 speechrecognition
+pyAudio

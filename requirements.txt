@@ -2,13 +2,7 @@ streamlit
 pandas
 openpyxl
 xlsxwriter
-pywhatkit
-twilio
-schedule
-supabase
 plotly
 reportlab
 requests
 openai
-speechrecognition
-pyAudio

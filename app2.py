@@ -2,48 +2,17 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Table
 
 st.set_page_config(layout="wide")
 
-# ================= LOGIN =================
-USER_DB = {
-    "admin": "admin123",
-    "viewer": "demo"
-}
-
-if "login" not in st.session_state:
-    st.session_state.login = False
-
-if not st.session_state.login:
-    st.title("🔐 Login")
-
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
-            st.session_state.login = True
-            st.session_state.user = u
-            st.rerun()
-        else:
-            st.error("Invalid Login")
-
-    st.stop()
-
-st.sidebar.title(f"👋 {st.session_state.user}")
-
 # ================= LOAD =================
-try:
-    df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
-    foc = pd.read_excel("Active_FOC.xlsx").fillna("")
-    service = pd.read_excel("Service_Details.xlsx").fillna("")
-except Exception as e:
-    st.error(f"❌ Error loading files: {e}")
-    st.stop()
+df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
+foc = pd.read_excel("Active_FOC.xlsx").fillna("")
+service = pd.read_excel("Service_Details.xlsx").fillna("")
 
 df.columns = df.columns.str.strip()
-foc.columns = foc.columns.str.strip()
-service.columns = service.columns.str.strip()
 
 # ================= COLUMN FIND =================
 def get_col(keyword):
@@ -56,11 +25,6 @@ cat_col = get_col("category")
 w_col = get_col("warranty")
 amc_col = get_col("amc")
 
-# ================= VALIDATION =================
-if cust_col is None or fab_col is None:
-    st.error("❌ Required columns missing (Customer / Fabrication)")
-    st.stop()
-
 # ================= FILTER =================
 df[cust_col] = df[cust_col].astype(str)
 df[fab_col] = df[fab_col].astype(str)
@@ -70,14 +34,19 @@ sel = st.sidebar.selectbox("Customer", customers)
 
 df_f = df if sel == "All" else df[df[cust_col] == sel]
 
-# ================= SIDEBAR =================
-st.sidebar.subheader("📊 Unit Count")
-if status_col:
-    st.sidebar.write(df_f[status_col].value_counts())
+# ================= EXPORT =================
+def to_excel(df):
+    buf = BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
 
-if cat_col:
-    st.sidebar.subheader("📊 Category Count")
-    st.sidebar.write(df_f[cat_col].value_counts())
+def to_pdf(df):
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf)
+    data = [df.columns.tolist()] + df.astype(str).values.tolist()
+    table = Table(data)
+    doc.build([table])
+    return buf.getvalue()
 
 # ================= DASHBOARD =================
 st.title("🏭 Industrial Dashboard")
@@ -85,23 +54,13 @@ st.title("🏭 Industrial Dashboard")
 st.metric("Total Units", len(df_f))
 
 if status_col:
-    active = len(df_f[df_f[status_col].str.contains("active", case=False)])
-    st.metric("Active Units", active)
+    st.sidebar.write(df_f[status_col].value_counts())
 
-# ================= HEALTH =================
-st.subheader("🚦 Health")
-
-def sum_col(col):
-    return int(pd.to_numeric(df_f.get(col, 0), errors='coerce').sum())
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("🔴 Red", sum_col(get_col("red")))
-c2.metric("🟡 Yellow", sum_col(get_col("yellow")))
-c3.metric("🟢 Green", sum_col(get_col("green")))
+if cat_col:
+    st.sidebar.write(df_f[cat_col].value_counts())
 
 # ================= WARRANTY =================
-st.sidebar.subheader("📅 Warranty Monthly")
+st.sidebar.subheader("📅 Warranty Expiry")
 
 if w_col:
     df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
@@ -113,7 +72,11 @@ if w_col:
         year = st.sidebar.selectbox("Year", sorted(df_valid["Warranty End"].dt.year.unique()))
         df_year = df_valid[df_valid["Warranty End"].dt.year == year]
 
-        st.sidebar.write(df_year["Warranty End"].dt.month.value_counts().sort_index())
+        monthly = df_year["Warranty End"].dt.month.value_counts().sort_index()
+        st.sidebar.write(monthly)
+
+        st.sidebar.download_button("Warranty Excel", to_excel(df_year))
+        st.sidebar.download_button("Warranty PDF", to_pdf(df_year))
 
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Expired")
@@ -124,92 +87,68 @@ if amc_col:
 
     st.sidebar.write(df_amc[amc_col].dt.month.value_counts().sort_index())
 
+    st.sidebar.download_button("AMC Excel", to_excel(df_amc))
+    st.sidebar.download_button("AMC PDF", to_pdf(df_amc))
+
 # ================= MACHINE =================
 st.subheader("🔍 Machine Tracker")
 
 machines = ["Select"] + list(df_f[fab_col].unique())
-sel_f = st.selectbox("Fabrication", machines)
+sel_f = st.selectbox("Machine", machines)
 
 if sel_f != "Select":
 
-    data = df_f[df_f[fab_col] == sel_f]
+    row = df_f[df_f[fab_col] == sel_f].iloc[0]
+    st.dataframe(pd.DataFrame([row]))
 
-    if data.empty:
-        st.warning("No data found")
+    # ================= PARTS =================
+    st.subheader("🔧 Parts")
 
-    else:
-        row = data.iloc[0]
-        st.dataframe(pd.DataFrame([row]))
+    parts = ["AF","OF","OIL","AOS","RGT","VK","PF","FF","CF"]
 
-        # ================= PARTS =================
-        st.subheader("🔧 Parts Dashboard")
+    for part in parts:
 
-        parts = []
+        rem_col = next((c for c in df.columns if part.lower() in c.lower() and "rem" in c.lower()), None)
+        due_col = next((c for c in df.columns if part.lower() in c.lower() and "due" in c.lower()), None)
 
-        for col in df.columns:
-            if "rem" in col.lower():
-                parts.append(col.split()[0])
+        rem = row.get(rem_col, None)
+        due = row.get(due_col, None)
 
-        parts = list(set(parts))
+        color = "🟢"
+        try:
+            if float(rem) < 200:
+                color = "🔴"
+            elif float(rem) < 500:
+                color = "🟡"
+        except:
+            pass
 
-        for part in sorted(parts):
+        overdue = ""
+        try:
+            if pd.to_datetime(due) < pd.Timestamp.today():
+                overdue = "⚠️ OVERDUE"
+        except:
+            pass
 
-            rem_col = next((c for c in df.columns if part.lower() in c.lower() and "rem" in c.lower()), None)
-            due_col = next((c for c in df.columns if part.lower() in c.lower() and "due" in c.lower()), None)
+        st.write(f"{color} {part} → Remaining: {rem} | Due: {due} {overdue}")
 
-            rem_val = row.get(rem_col, None)
-            due_val = row.get(due_col, None)
+    # ================= AI PREDICTION =================
+    st.subheader("🤖 AI Prediction")
 
-            color = "🟢"
-
-            try:
-                rem_val = float(rem_val)
-                if rem_val < 200:
-                    color = "🔴"
-                elif rem_val < 500:
-                    color = "🟡"
-            except:
-                pass
-
-            overdue = ""
-            try:
-                if pd.to_datetime(due_val, errors='coerce') < pd.Timestamp.today():
-                    overdue = "⚠️ OVERDUE"
-            except:
-                pass
-
-            st.write(f"{color} {part} → Remaining: {rem_val} | Due: {due_val} {overdue}")
-
-        # ================= FOC =================
-        foc_col = next((c for c in foc.columns if "fabrication" in c.lower()), None)
-
-        if foc_col:
-            foc_cols = ["Created on","FOC No","Part No","Description","FOC Status","ELGi Invoice No"]
-            st.subheader("🎁 FOC List")
-            st.dataframe(foc[foc[foc_col]==sel_f][[c for c in foc_cols if c in foc.columns]])
-
-        # ================= SERVICE =================
-        srv_col = next((c for c in service.columns if "fabrication" in c.lower()), None)
-
-        if srv_col:
-            srv_cols = ["Created on","Call No","HMR","Call Type","Service Engineer Comments"]
-            st.subheader("🛠 Service History")
-            st.dataframe(service[service[srv_col]==sel_f][[c for c in srv_cols if c in service.columns]])
+    try:
+        hmr = float(row.get("HMR", 0))
+        predicted = hmr + 500
+        st.success(f"Next service expected at {int(predicted)} Hrs")
+    except:
+        st.info("No prediction data")
 
 # ================= CHART =================
-st.subheader("📊 Unit Status Chart")
-
 if status_col:
     fig = px.pie(df_f, names=status_col)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
 
-# ================= AI =================
-st.subheader("🤖 AI Assistant")
+# ================= WHATSAPP ALERT (SIMULATION) =================
+st.subheader("📲 WhatsApp Alert")
 
-q = st.text_input("Ask something")
-
-if st.button("Ask AI"):
-    if q:
-        st.success(f"👋 {q}")
-    else:
-        st.warning("Enterprises question")
+if st.button("Send Overdue Alert"):
+    st.success("✅ WhatsApp Alert Sent (API Ready)")

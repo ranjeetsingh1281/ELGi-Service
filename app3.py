@@ -43,7 +43,7 @@ status_col = get_col("status")
 cat_col = get_col("category")
 w_col = get_col("warranty")
 amc_col = get_col("amc")
-priority_col = get_col("priority")
+priority_col = get_col("priority Visits")
 visit_col = get_col("visit")
 model_col = get_col("model")
 loc_col = get_col("location")
@@ -73,38 +73,49 @@ def to_pdf(df):
     return buf.getvalue()
 
 # ================= DASHBOARD =================
-st.title("🏭 Industrial Dashboard")
-st.metric("Total Units", len(df_f))
-
-# ================= WARRANTY =================
-st.subheader("📅 Warranty Expiry")
+st.sidebar.subheader("📅 Warranty Expiry (Monthly)")
 
 if w_col:
-    df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
-    df_f["Warranty End"] = df_f[w_col] + pd.DateOffset(years=1)
+    df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
+    df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
 
-    df_valid = df_f.dropna(subset=["Warranty End"])
+    df_w = df.dropna(subset=["Warranty End"])
 
-    if not df_valid.empty:
-        year = st.selectbox("Warranty Year", sorted(df_valid["Warranty End"].dt.year.unique()))
-        df_year = df_valid[df_valid["Warranty End"].dt.year == year]
+    if not df_w.empty:
+        year = st.sidebar.selectbox(
+            "Warranty Year",
+            sorted(df_w["Warranty End"].dt.year.unique()),
+            key="w_year"
+        )
 
-        st.write(df_year["Warranty End"].dt.month.value_counts().sort_index())
+        df_wy = df_w[df_w["Warranty End"].dt.year == year]
 
-        st.download_button("Warranty Excel", to_excel(df_year))
-        st.download_button("Warranty PDF", to_pdf(df_year))
+        monthly_w = df_wy["Warranty End"].dt.month.value_counts().sort_index()
 
+        st.sidebar.write(monthly_w)
+        
 # ================= AMC =================
-st.subheader("📆 AMC Expired")
+st.sidebar.subheader("📆 AMC Expiry (Monthly)")
 
 if amc_col:
-    df_f[amc_col] = pd.to_datetime(df_f[amc_col], errors='coerce')
-    df_amc = df_f[df_f[amc_col] < datetime.today()]
+    df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
 
-    st.write(df_amc[amc_col].dt.month.value_counts().sort_index())
+    df_a = df.dropna(subset=[amc_col])
 
-    st.download_button("AMC Excel", to_excel(df_amc))
-    st.download_button("AMC PDF", to_pdf(df_amc))
+    if not df_a.empty:
+        year_a = st.sidebar.selectbox(
+            "AMC Year",
+            sorted(df_a[amc_col].dt.year.unique()),
+            key="a_year"
+        )
+
+        df_ay = df_a[df_a[amc_col].dt.year == year_a]
+
+        monthly_a = df_ay[amc_col].dt.month.value_counts().sort_index()
+
+        st.sidebar.write(monthly_a)
+        st.download_button("AMC Excel", to_excel(df_amc))
+        st.download_button("AMC PDF", to_pdf(df_amc))
 
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
@@ -140,17 +151,21 @@ if sel_f != "Select":
 st.subheader("🚨 Priority Visit Dashboard")
 
 if priority_col:
-    p_df = df_f[df_f[priority_col].astype(str).str.contains("high", case=False)]
+
+    p_df = df_f[df_f[priority_col].astype(str).str.strip() != ""]
 
     if not p_df.empty:
-        show_cols = [
+
+        st.success(f"{len(p_df)} Priority Visits Found")
+
+        st.dataframe(p_df[[c for c in [
             fab_col, cust_col, model_col, loc_col,
-            contact_col, visit_col
-        ]
-        show_cols = [c for c in show_cols if c in p_df.columns]
+            contact_col, visit_col, priority_col
+        ] if c in p_df.columns]], use_container_width=True)
 
-        st.dataframe(p_df[show_cols])
-
+    else:
+        st.warning("No Priority Visit Data")
+        
 # ================= CHART =================
 if status_col:
     st.subheader("📊 Status Chart")

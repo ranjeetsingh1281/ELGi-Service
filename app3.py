@@ -2,21 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Table
 
 st.set_page_config(layout="wide")
 
 # ================= LOGIN =================
-USER_DB = {
-    "admin": "admin123",
-    "viewer": "demo"
-}
+USER_DB = {"admin": "admin123", "viewer": "demo"}
 
 if "login" not in st.session_state:
     st.session_state.login = False
 
 if not st.session_state.login:
     st.title("🔐 Login")
-
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
@@ -26,8 +24,7 @@ if not st.session_state.login:
             st.session_state.user = u
             st.rerun()
         else:
-            st.error("Invalid login")
-
+            st.error("Invalid Login")
     st.stop()
 
 st.sidebar.title(f"👋 {st.session_state.user}")
@@ -36,95 +33,130 @@ st.sidebar.title(f"👋 {st.session_state.user}")
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 df.columns = df.columns.str.strip()
 
-# ================= COLUMN FIND =================
+# ================= COLUMN =================
 def get_col(keyword):
     return next((c for c in df.columns if keyword.lower() in c.lower()), None)
 
 cust_col = get_col("customer")
 fab_col = get_col("fabrication")
+status_col = get_col("status")
+cat_col = get_col("category")
+w_col = get_col("warranty")
+amc_col = get_col("amc")
+priority_col = get_col("priority")
+visit_col = get_col("visit")
 model_col = get_col("model")
 loc_col = get_col("location")
 contact_col = get_col("contact")
-visit_col = get_col("visit")
-priority_col = get_col("priority")
 
 # ================= FILTER =================
 df[cust_col] = df[cust_col].astype(str)
+df[fab_col] = df[fab_col].astype(str)
 
 customers = ["All"] + sorted(df[cust_col].unique())
 sel = st.sidebar.selectbox("Customer", customers)
 
 df_f = df if sel == "All" else df[df[cust_col] == sel]
 
+# ================= EXPORT =================
+def to_excel(df):
+    buf = BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
+
+def to_pdf(df):
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf)
+    data = [df.columns.tolist()] + df.astype(str).values.tolist()
+    table = Table(data)
+    doc.build([table])
+    return buf.getvalue()
+
 # ================= DASHBOARD =================
 st.title("🏭 Industrial Dashboard")
-
 st.metric("Total Units", len(df_f))
 
-# ================= PRIORITY VISIT =================
+# ================= WARRANTY =================
+st.subheader("📅 Warranty Expiry")
+
+if w_col:
+    df_f[w_col] = pd.to_datetime(df_f[w_col], errors='coerce')
+    df_f["Warranty End"] = df_f[w_col] + pd.DateOffset(years=1)
+
+    df_valid = df_f.dropna(subset=["Warranty End"])
+
+    if not df_valid.empty:
+        year = st.selectbox("Warranty Year", sorted(df_valid["Warranty End"].dt.year.unique()))
+        df_year = df_valid[df_valid["Warranty End"].dt.year == year]
+
+        st.write(df_year["Warranty End"].dt.month.value_counts().sort_index())
+
+        st.download_button("Warranty Excel", to_excel(df_year))
+        st.download_button("Warranty PDF", to_pdf(df_year))
+
+# ================= AMC =================
+st.subheader("📆 AMC Expired")
+
+if amc_col:
+    df_f[amc_col] = pd.to_datetime(df_f[amc_col], errors='coerce')
+    df_amc = df_f[df_f[amc_col] < datetime.today()]
+
+    st.write(df_amc[amc_col].dt.month.value_counts().sort_index())
+
+    st.download_button("AMC Excel", to_excel(df_amc))
+    st.download_button("AMC PDF", to_pdf(df_amc))
+
+# ================= MACHINE TRACKER =================
+st.subheader("🔍 Machine Tracker")
+
+machines = ["Select"] + list(df_f[fab_col].unique())
+sel_f = st.selectbox("Select Machine", machines)
+
+if sel_f != "Select":
+
+    data = df_f[df_f[fab_col] == sel_f]
+
+    if not data.empty:
+        row = data.iloc[0]
+        st.dataframe(pd.DataFrame([row]))
+
+        st.subheader("🔧 Parts")
+
+        parts = ["AF","OF","OIL","AOS","RGT","VK","PF","FF","CF"]
+
+        for part in parts:
+
+            rep_col = next((c for c in df.columns if part.lower() in c.lower() and "r date" in c.lower()), None)
+            rem_col = next((c for c in df.columns if part.lower() in c.lower() and "rem" in c.lower()), None)
+            due_col = next((c for c in df.columns if part.lower() in c.lower() and "due" in c.lower()), None)
+
+            rep = row.get(rep_col, "N/A")
+            rem = row.get(rem_col, "N/A")
+            due = row.get(due_col, "N/A")
+
+            st.write(f"{part} → R: {rep} | Rem: {rem} | Due: {due}")
+
+# ================= PRIORITY =================
 st.subheader("🚨 Priority Visit Dashboard")
 
 if priority_col:
-    priority_df = df_f[df_f[priority_col].astype(str).str.contains("high", case=False)]
+    p_df = df_f[df_f[priority_col].astype(str).str.contains("high", case=False)]
 
-    if not priority_df.empty:
-
-        # DATE HANDLING
-        today = pd.Timestamp.today()
-        current_month = today.month
-        next_month = (today + pd.DateOffset(months=1)).month
-
-        def overdue_status(row):
-            last_visit = pd.to_datetime(row.get(visit_col), errors='coerce')
-            if pd.isna(last_visit):
-                return "Unknown"
-
-            if last_visit < today - pd.Timedelta(days=30):
-                return "Overdue"
-            return "OK"
-
-        priority_df["Overdue"] = priority_df.apply(overdue_status, axis=1)
-
-        priority_df["Current Month Overdue"] = priority_df.apply(
-            lambda x: "Yes" if pd.to_datetime(x.get(visit_col), errors='coerce').month == current_month else "No",
-            axis=1
-        )
-
-        priority_df["Next Month Overdue"] = priority_df.apply(
-            lambda x: "Yes" if pd.to_datetime(x.get(visit_col), errors='coerce').month == next_month else "No",
-            axis=1
-        )
-
-        # ================= PART DETAILS =================
-        parts = ["AF","OF","OIL","AOS","RGT","VK"]
-
-        for part in parts:
-            r_col = next((c for c in df.columns if part.lower() in c.lower() and "r date" in c.lower()), None)
-            rem_col = next((c for c in df.columns if part.lower() in c.lower() and "rem" in c.lower()), None)
-
-            priority_df[f"{part} R Date"] = priority_df[r_col] if r_col else ""
-            priority_df[f"{part} Rem"] = priority_df[rem_col] if rem_col else ""
-
-        # ================= DISPLAY =================
+    if not p_df.empty:
         show_cols = [
-            fab_col, cust_col, model_col, loc_col, contact_col, visit_col,
-            "Overdue", "Current Month Overdue", "Next Month Overdue",
-            "AF R Date","AF Rem","OF R Date","OF Rem",
-            "OIL R Date","OIL Rem","AOS R Date","AOS Rem",
-            "RGT R Date","RGT Rem","VK R Date","VK Rem"
+            fab_col, cust_col, model_col, loc_col,
+            contact_col, visit_col
         ]
+        show_cols = [c for c in show_cols if c in p_df.columns]
 
-        show_cols = [c for c in show_cols if c in priority_df.columns]
-
-        st.dataframe(priority_df[show_cols], use_container_width=True)
-
-    else:
-        st.info("No priority visits found")
+        st.dataframe(p_df[show_cols])
 
 # ================= CHART =================
-status_col = get_col("status")
-
 if status_col:
     st.subheader("📊 Status Chart")
-    fig = px.pie(df_f, names=status_col)
-    st.plotly_chart(fig, use_container_width=True)
+
+    vc = df_f[status_col].value_counts().reset_index()
+    vc.columns = ["Status", "Count"]
+
+    fig = px.pie(vc, names="Status", values="Count")
+    st.plotly_chart(fig)

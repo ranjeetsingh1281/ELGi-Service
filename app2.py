@@ -21,7 +21,7 @@ def get_col(keyword):
 cust_col = get_col("customer")
 fab_col = get_col("fabrication")
 status_col = get_col("status")
-cat_col = get_col("category")
+cat_col = get_col("Sub category")
 w_col = get_col("warranty")
 amc_col = get_col("amc")
 
@@ -137,7 +137,7 @@ if sel_f != "Select":
 
     try:
         hmr = float(row.get("HMR", 0))
-        predicted = hmr + 500
+        predicted = hmr + 1500
         st.success(f"Next service expected at {int(predicted)} Hrs")
     except:
         st.info("No prediction data")

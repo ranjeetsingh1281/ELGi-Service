@@ -89,6 +89,7 @@ if amc_col:
         st.sidebar.write(df_ay[amc_col].dt.month.value_counts().sort_index())
 
 # ================= PRIORITY =================
+# ================= PRIORITY =================
 st.subheader("🚨 Priority Visit Dashboard")
 
 if priority_col:
@@ -98,6 +99,65 @@ if priority_col:
     if not p_df.empty:
 
         st.success(f"{len(p_df)} Priority Visits Found")
+
+        # ✅ SAFE COPY (avoid SettingWithCopy error)
+        p_df = p_df.copy()
+
+        # ================= SCORING =================
+        def score(row):
+            try:
+                last = pd.to_datetime(row.get(visit_col), errors='coerce')
+                if pd.isna(last):
+                    return "Unknown"
+
+                days = (datetime.today() - last).days
+
+                if days > 60:
+                    return "🔴 High"
+                elif days > 30:
+                    return "🟡 Medium"
+                else:
+                    return "🟢 Normal"
+            except:
+                return "Unknown"
+
+        if visit_col:
+            p_df["Priority Score"] = p_df.apply(score, axis=1)
+
+        # ================= SAFE COLUMN FILTER =================
+        base_cols = [
+            fab_col, cust_col, model_col,
+            loc_col, contact_col, visit_col,
+            priority_col
+        ]
+
+        safe_cols = []
+
+        for c in base_cols:
+            if c is not None and c in p_df.columns and c not in safe_cols:
+                safe_cols.append(c)
+
+        # add score if exists
+        if "Priority Score" in p_df.columns:
+            safe_cols.append("Priority Score")
+
+        # ================= FINAL DISPLAY =================
+        try:
+            st.dataframe(p_df[safe_cols], use_container_width=True)
+        except Exception as e:
+            st.error(f"Display error: {e}")
+
+        # ================= EXPORT =================
+        st.download_button("📥 Download Priority Excel", p_df.to_csv(index=False))
+
+        # ================= WHATSAPP =================
+        st.subheader("📲 WhatsApp Alert")
+
+        if st.button("Send Priority Alerts"):
+            st.success("✅ Alerts Sent (Demo Mode)")
+
+    else:
+        st.warning("No Priority Visit Data")
 
         # ================= SCORING =================
         def score(row):

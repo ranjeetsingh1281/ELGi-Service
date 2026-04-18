@@ -169,7 +169,6 @@ if sel_f!="Select":
         st.markdown("### 🚨 Due")
         for p in parts:
             st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
-
     # EXPORT
     machine_df=pd.DataFrame([row])
     st.download_button("📊 Excel", to_excel(machine_df), "machine.xlsx")

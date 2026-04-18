@@ -6,3 +6,7 @@ plotly
 reportlab
 requests
 openai
+fastapi
+uvicorn
+scikit-learn
+joblib

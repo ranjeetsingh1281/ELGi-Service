@@ -14,5 +14,6 @@ def predict(hmr: float, avg: float):
         "oil": int(preds[0]),
         "afc": int(preds[1]),
         "afe": int(preds[2]),
-        "mof": int(preds[3])
+        "mof": int(preds[3]),
+        "vlk": int(preds[4])
     }

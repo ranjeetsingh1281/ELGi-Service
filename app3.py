@@ -2,132 +2,196 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import urllib.parse
 
-st.set_page_config(layout="wide")
-
-# ================= LOGIN =================
-USER_DB = {"admin": "admin123"}
+# ==============================
+# 🔐 LOGIN
+# ==============================
+USER_DB = {
+    "admin": {"pass": "admin123"},
+    "user1": {"pass": "dpsac123"}
+}
 
 if "login" not in st.session_state:
-    st.session_state.login = False
-
-if not st.session_state.login:
-    st.title("🔐 Login")
+    st.title("🔐 ELGi Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if USER_DB.get(u) == p:
-            st.session_state.login = True
+        if u in USER_DB and USER_DB[u]["pass"] == p:
+            st.session_state["login"] = True
+            st.session_state["user"] = u
             st.rerun()
         else:
             st.error("Invalid Login")
+
     st.stop()
 
-# ================= LOAD =================
-df = pd.read_excel("Master_OD_Data.xlsx")
+# ==============================
+# CONFIG
+# ==============================
+st.set_page_config(layout="wide")
 
-# CLEAN COLUMN
-df.columns = df.columns.str.strip()
+# ==============================
+# HELPERS
+# ==============================
+def fmt(dt):
+    try:
+        return pd.to_datetime(dt).strftime('%d-%b-%y')
+    except:
+        return "N/A"
 
-# ================= SAFE COLUMN FIND =================
-def find_col(possible_names):
-    for name in possible_names:
-        for col in df.columns:
-            if name.lower() in col.lower():
-                return col
-    return None
+def color(val):
+    try:
+        val = float(val)
+        if val < 0: return f"🔴 {val}"
+        elif val <= 200: return f"🟡 {val}"
+        else: return f"🟢 {val}"
+    except:
+        return "N/A"
 
-cust_col = find_col(["customer", "party"])
-fab_col = find_col(["fabrication"])
-priority_col = find_col(["priority"])
-visit_col = find_col(["visit"])
+def smart_get(row, keys):
+    for col in row.index:
+        col_clean = str(col).lower().replace(" ","").replace("-","")
+        if all(k in col_clean for k in keys):
+            return row[col]
+    return "N/A"
 
-# ================= SAFETY CHECK =================
-if cust_col is None or fab_col is None:
-    st.error("❌ Customer or Fabrication column not found in Excel")
-    st.write("Available columns:", list(df.columns))
-    st.stop()
+# ==============================
+# LOAD DATA
+# ==============================
+@st.cache_data
+def load():
+    m = pd.read_excel("Master_Data.xlsx")
+    f = pd.read_excel("Active_FOC.xlsx")
+    s = pd.read_excel("Service_Details.xlsx")
 
-# ================= FILTER =================
-df = df.fillna("").astype(str)
+    for d in [m,f,s]:
+        d.columns = d.columns.str.strip()
 
-customers = ["All"] + sorted(df[cust_col].unique())
+    return m,f,s
 
-sel = st.sidebar.selectbox("Customer", customers)
+master,foc,service = load()
 
-df_f = df if sel == "All" else df[df[cust_col] == sel]
+# ==============================
+# SIDEBAR
+# ==============================
+st.sidebar.title(f"👋 {st.session_state['user']}")
 
-# ================= DASHBOARD =================
-st.title("🏭 Industrial Dashboard")
-st.metric("Total Units", len(df_f))
+menu = st.sidebar.radio("Menu", [
+    "Dashboard",
+    "Machine View",
+    "FOC List",
+    "Overdue",
+    "📢 Alerts"
+])
 
-# ================= PRIORITY =================
-st.subheader("🚨 Priority Visit Dashboard")
+if st.sidebar.button("Logout"):
+    st.session_state.clear()
+    st.rerun()
 
-if priority_col:
+# ==============================
+# DASHBOARD
+# ==============================
+if menu == "Dashboard":
 
-    p_df = df_f[df_f[priority_col] != ""]
+    st.title("📊 ELGi Premium Dashboard")
 
-    if len(p_df) > 0:
+    status_col = next((c for c in master.columns if "status" in c.lower()), None)
 
-        st.success(f"{len(p_df)} Priority Visits Found")
+    total = len(master)
+    active = len(master[master[status_col].str.contains("active", case=False, na=False)])
+    shifted = len(master[master[status_col].str.contains("shifted", case=False, na=False)])
+    sold = len(master[master[status_col].str.contains("sold", case=False, na=False)])
 
-        safe_data = []
+    k1,k2,k3,k4 = st.columns(4)
+    k1.metric("Total", total)
+    k2.metric("Active", active)
+    k3.metric("Shifted", shifted)
+    k4.metric("Sold", sold)
 
-        for _, row in p_df.iterrows():
+    # PIE CHART
+    st.subheader("📊 Status Distribution")
+    st.bar_chart(master[status_col].value_counts())
 
-            try:
-                last = pd.to_datetime(row.get(visit_col), errors='coerce')
+    # TREND (HMR)
+    st.subheader("📈 HMR Trend")
+    hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
+    if hmr_col:
+        st.line_chart(master[hmr_col])
 
-                if pd.isna(last):
-                    score = "Unknown"
-                else:
-                    days = (datetime.today() - last).days
+# ==============================
+# MACHINE VIEW
+# ==============================
+elif menu == "Machine View":
 
-                    if days > 60:
-                        score = "🔴 High"
-                    elif days > 30:
-                        score = "🟡 Medium"
-                    else:
-                        score = "🟢 Normal"
+    cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
+    fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
 
-            except:
-                score = "Unknown"
+    c1,c2 = st.columns(2)
 
-            safe_data.append({
-                "Fabrication": row.get(fab_col, ""),
-                "Customer": row.get(cust_col, ""),
-                "Visit Date": row.get(visit_col, ""),
-                "Priority": row.get(priority_col, ""),
-                "Score": score
-            })
+    sel_c = c1.selectbox("Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
+    df_f = master if sel_c=="All" else master[master[cust_col]==sel_c]
 
-        safe_df = pd.DataFrame(safe_data)
+    sel_f = c2.selectbox("Fabrication", ["Select"] + sorted(df_f[fab_col].astype(str).unique()))
 
-        st.dataframe(safe_df)
+    if sel_f != "Select":
 
-        # EXPORT
-        buf = BytesIO()
-        safe_df.to_excel(buf, index=False)
+        row = df_f[df_f[fab_col]==sel_f].iloc[0]
 
-        st.download_button("📥 Download Priority", buf.getvalue())
+        col1,col2,col3,col4 = st.columns(4)
 
-    else:
-        st.warning("No Priority Data")
+        parts = ["oil","afc","afe","mof","rof","aos","rgt","1500","3000"]
 
-# ================= MACHINE =================
-st.subheader("🔍 Machine Tracker")
+        with col1:
+            st.markdown("### 📋 Info")
+            st.write(row[cust_col])
 
-machines = ["Select"] + list(df_f[fab_col].unique())
+        with col2:
+            st.markdown("### 🔧 Replacement")
+            for p in parts:
+                st.write(p.upper(), fmt(smart_get(row,[p,"r"])))
 
-sel_f = st.selectbox("Machine", machines)
+        with col3:
+            st.markdown("### ⏳ Remaining")
+            for p in parts:
+                st.write(p.upper(), color(smart_get(row,[p,"rem"])))
 
-if sel_f != "Select":
+        with col4:
+            st.markdown("### 🚨 Due")
+            for p in parts:
+                st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
 
-    row_df = df_f[df_f[fab_col] == sel_f]
+# ==============================
+# FOC LIST
+# ==============================
+elif menu == "FOC List":
+    cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date"])]
+    st.dataframe(foc[cols], use_container_width=True)
 
-    if len(row_df) > 0:
-        row = row_df.iloc[0]
+# ==============================
+# OVERDUE
+# ==============================
+elif menu == "Overdue":
 
-        st.json(dict(row))
+    over_col = next((c for c in master.columns if "over" in c.lower()), None)
+
+    if over_col:
+        master[over_col] = pd.to_numeric(master[over_col], errors="coerce").fillna(0)
+        df_o = master[master[over_col]>0]
+
+        st.warning(f"{len(df_o)} Machines Overdue")
+        st.dataframe(df_o)
+
+# ==============================
+# ALERTS
+# ==============================
+elif menu == "📢 Alerts":
+
+    st.title("📢 Alert System")
+
+    msg = st.text_area("Message", "Service Due Alert")
+
+    wa_link = f"https://wa.me/91XXXXXXXXXX?text={urllib.parse.quote(msg)}"
+
+    st.markdown(f"[📱 Send WhatsApp Alert]({wa_link})")

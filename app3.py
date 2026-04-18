@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from io import BytesIO
 import urllib.parse
+from io import BytesIO
 
 # ==============================
 # 🔐 LOGIN
 # ==============================
 USER_DB = {
-    "admin": {"pass": "admin123"},
-    "user1": {"pass": "dpsac123"}
+    "admin": "admin123",
+    "user": "123"
 }
 
 if "login" not in st.session_state:
@@ -18,7 +18,7 @@ if "login" not in st.session_state:
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if u in USER_DB and USER_DB[u]["pass"] == p:
+        if u in USER_DB and USER_DB[u] == p:
             st.session_state["login"] = True
             st.session_state["user"] = u
             st.rerun()
@@ -52,10 +52,30 @@ def color(val):
 
 def smart_get(row, keys):
     for col in row.index:
-        col_clean = str(col).lower().replace(" ","").replace("-","")
-        if all(k in col_clean for k in keys):
+        c = str(col).lower().replace(" ","").replace("-","")
+        if all(k in c for k in keys):
             return row[col]
     return "N/A"
+
+def predict(row):
+    try:
+        hmr = smart_get(row, ["hmr"])
+        avg = smart_get(row, ["avg"])
+
+        if hmr == "N/A" or avg == "N/A":
+            return "N/A"
+
+        remaining = 2000 - float(hmr)
+        days = remaining / float(avg)
+
+        return (datetime.today() + pd.Timedelta(days=days)).strftime("%d-%b-%Y")
+    except:
+        return "N/A"
+
+def to_excel(df):
+    buf = BytesIO()
+    df.to_excel(buf, index=False)
+    return buf.getvalue()
 
 # ==============================
 # LOAD DATA
@@ -80,7 +100,7 @@ st.sidebar.title(f"👋 {st.session_state['user']}")
 
 menu = st.sidebar.radio("Menu", [
     "Dashboard",
-    "Machine View",
+    "Machine Tracker",
     "FOC List",
     "Overdue",
     "📢 Alerts"
@@ -104,26 +124,24 @@ if menu == "Dashboard":
     shifted = len(master[master[status_col].str.contains("shifted", case=False, na=False)])
     sold = len(master[master[status_col].str.contains("sold", case=False, na=False)])
 
-    k1,k2,k3,k4 = st.columns(4)
-    k1.metric("Total", total)
-    k2.metric("Active", active)
-    k3.metric("Shifted", shifted)
-    k4.metric("Sold", sold)
+    c1,c2,c3,c4 = st.columns(4)
+    c1.metric("Total", total)
+    c2.metric("Active", active)
+    c3.metric("Shifted", shifted)
+    c4.metric("Sold", sold)
 
-    # PIE CHART
-    st.subheader("📊 Status Distribution")
+    st.subheader("📊 Status Chart")
     st.bar_chart(master[status_col].value_counts())
 
-    # TREND (HMR)
     st.subheader("📈 HMR Trend")
     hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
     if hmr_col:
         st.line_chart(master[hmr_col])
 
 # ==============================
-# MACHINE VIEW
+# MACHINE TRACKER
 # ==============================
-elif menu == "Machine View":
+elif menu == "Machine Tracker":
 
     cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
     fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
@@ -146,6 +164,7 @@ elif menu == "Machine View":
         with col1:
             st.markdown("### 📋 Info")
             st.write(row[cust_col])
+            st.write("🔮 Next Failure:", predict(row))
 
         with col2:
             st.markdown("### 🔧 Replacement")
@@ -162,12 +181,22 @@ elif menu == "Machine View":
             for p in parts:
                 st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
 
+        # FOC
+        st.subheader("🎁 FOC")
+        foc_cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date"])]
+        f_fab = next((c for c in foc.columns if "fabrication" in c.lower()), foc.columns[0])
+        st.dataframe(foc[foc[f_fab]==sel_f][foc_cols])
+
+        # Service
+        st.subheader("🕒 Service")
+        s_fab = next((c for c in service.columns if "fabrication" in c.lower()), service.columns[0])
+        st.dataframe(service[service[s_fab]==sel_f])
+
 # ==============================
 # FOC LIST
 # ==============================
 elif menu == "FOC List":
-    cols = [c for c in foc.columns if any(k in c.lower() for k in ["fabrication","part","qty","date"])]
-    st.dataframe(foc[cols], use_container_width=True)
+    st.dataframe(foc)
 
 # ==============================
 # OVERDUE
@@ -177,21 +206,21 @@ elif menu == "Overdue":
     over_col = next((c for c in master.columns if "over" in c.lower()), None)
 
     if over_col:
-        master[over_col] = pd.to_numeric(master[over_col], errors="coerce").fillna(0)
-        df_o = master[master[over_col]>0]
+        master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
+        df_o = master[master[over_col] > 0]
 
         st.warning(f"{len(df_o)} Machines Overdue")
         st.dataframe(df_o)
 
+        st.download_button("Download", to_excel(df_o), "Overdue.xlsx")
+
 # ==============================
-# ALERTS
+# ALERT
 # ==============================
 elif menu == "📢 Alerts":
-
-    st.title("📢 Alert System")
 
     msg = st.text_area("Message", "Service Due Alert")
 
     wa_link = f"https://wa.me/91XXXXXXXXXX?text={urllib.parse.quote(msg)}"
 
-    st.markdown(f"[📱 Send WhatsApp Alert]({wa_link})")
+    st.markdown(f"[📱 Send WhatsApp]({wa_link})")

@@ -2,7 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
-from twilio.rest import Client
+from io import BytesIO
+import urllib.parse
+from reportlab.platypus import SimpleDocTemplate, Table
+from reportlab.lib import colors
 
 # ==============================
 # CONFIG
@@ -10,36 +13,27 @@ from twilio.rest import Client
 st.set_page_config(layout="wide")
 
 # ==============================
-# DARK GLASS UI
+# DARK UI
 # ==============================
 st.markdown("""
 <style>
-body {
-    background-color: #0f172a;
-    color: white;
-}
-.glass {
-    background: rgba(255,255,255,0.05);
-    padding: 15px;
-    border-radius: 12px;
-    backdrop-filter: blur(10px);
-}
+body {background-color:#0f172a;color:white;}
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================
 # LOGIN
 # ==============================
-USER_DB = {"admin":"admin123","user":"123"}
+USER_DB={"admin":"admin123","user":"123"}
 
 if "login" not in st.session_state:
     st.title("🔐 ELGi Login")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+    u=st.text_input("Username")
+    p=st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if u in USER_DB and USER_DB[u] == p:
-            st.session_state["login"] = True
+        if u in USER_DB and USER_DB[u]==p:
+            st.session_state["login"]=True
             st.rerun()
         else:
             st.error("Invalid Login")
@@ -48,18 +42,6 @@ if "login" not in st.session_state:
 # ==============================
 # HELPERS
 # ==============================
-def fmt(dt):
-    try: return pd.to_datetime(dt).strftime('%d-%b-%y')
-    except: return "N/A"
-
-def color(val):
-    try:
-        val=float(val)
-        if val<0: return f"🔴 {val}"
-        elif val<=200: return f"🟡 {val}"
-        else: return f"🟢 {val}"
-    except: return "N/A"
-
 def smart_get(row, keys):
     for col in row.index:
         c=str(col).lower().replace(" ","").replace("-","")
@@ -67,29 +49,66 @@ def smart_get(row, keys):
             return row[col]
     return "N/A"
 
-# ==============================
-# LOAD DATA
-# ==============================
-master = pd.read_excel("Master_Data.xlsx")
-master.columns = master.columns.str.strip()
+def fmt(x):
+    try: return pd.to_datetime(x).strftime('%d-%b-%y')
+    except: return "N/A"
+
+def color(v):
+    try:
+        v=float(v)
+        if v<0: return f"🔴 {v}"
+        elif v<=200: return f"🟡 {v}"
+        else: return f"🟢 {v}"
+    except: return "N/A"
+
+def to_excel(df):
+    buf=BytesIO()
+    df.to_excel(buf,index=False)
+    return buf.getvalue()
+
+def to_pdf(df):
+    buf=BytesIO()
+    doc=SimpleDocTemplate(buf)
+    data=[df.columns.tolist()]+df.astype(str).values.tolist()
+    table=Table(data)
+    table.setStyle([
+        ('BACKGROUND',(0,0),(-1,0),colors.grey),
+        ('GRID',(0,0),(-1,-1),1,colors.black)
+    ])
+    doc.build([table])
+    return buf.getvalue()
 
 # ==============================
-# FILTERS
+# LOAD
+# ==============================
+master=pd.read_excel("Master_Data.xlsx")
+master.columns=master.columns.str.strip()
+
+# ==============================
+# COLUMN DETECT
+# ==============================
+status_col=next((c for c in master.columns if "status" in c.lower()),None)
+cat_col=next((c for c in master.columns if "category" in c.lower()),None)
+cust_col=next((c for c in master.columns if "customer" in c.lower()),master.columns[0])
+fab_col=next((c for c in master.columns if "fabrication" in c.lower()),master.columns[1])
+over_col=next((c for c in master.columns if "over" in c.lower()),None)
+
+# ==============================
+# FILTER
 # ==============================
 st.sidebar.title("🔍 Filters")
 
-cust_col = next((c for c in master.columns if "customer" in c.lower()), master.columns[0])
-status_col = next((c for c in master.columns if "status" in c.lower()), None)
+customers=["All"]+sorted(master[cust_col].astype(str).unique())
+sel_c=st.sidebar.selectbox("Customer",customers)
 
-sel_c = st.sidebar.selectbox("Customer", ["All"] + sorted(master[cust_col].astype(str).unique()))
-
-df = master if sel_c=="All" else master[master[cust_col]==sel_c]
+df=master if sel_c=="All" else master[master[cust_col]==sel_c]
 
 # ==============================
-# KPI CARDS
+# DASHBOARD
 # ==============================
-st.title("📊 ELGi Premium Dashboard")
+st.title("📊 ELGi Executive Dashboard")
 
+# UNIT STATUS COUNT
 total=len(df)
 active=len(df[df[status_col].str.contains("active",case=False,na=False)])
 shifted=len(df[df[status_col].str.contains("shifted",case=False,na=False)])
@@ -101,36 +120,35 @@ c2.metric("Active",active)
 c3.metric("Shifted",shifted)
 c4.metric("Sold",sold)
 
-# ==============================
-# PLOTLY CHARTS
-# ==============================
+# CATEGORY COUNT
+if cat_col:
+    st.subheader("📊 Category Distribution")
+    fig_cat=px.pie(df, names=cat_col)
+    st.plotly_chart(fig_cat, use_container_width=True)
+
+# STATUS CHART
 st.subheader("📊 Status Distribution")
+fig=px.bar(df[status_col].value_counts())
+st.plotly_chart(fig)
 
-fig1 = px.pie(df, names=status_col, title="Machine Status")
-st.plotly_chart(fig1, use_container_width=True)
-
-hmr_col = next((c for c in master.columns if "hmr" in c.lower()), None)
-
-if hmr_col:
-    st.subheader("📈 HMR Trend")
-    fig2 = px.line(df, y=hmr_col, title="HMR Trend")
-    st.plotly_chart(fig2, use_container_width=True)
+# OVERDUE ALERT
+if over_col:
+    df[over_col]=pd.to_numeric(df[over_col],errors='coerce').fillna(0)
+    overdue=df[df[over_col]>0]
+    if len(overdue)>0:
+        st.error(f"🚨 {len(overdue)} Machines Overdue")
 
 # ==============================
 # MACHINE TRACKER
 # ==============================
 st.subheader("🔍 Machine Tracker")
 
-fab_col = next((c for c in master.columns if "fabrication" in c.lower()), master.columns[1])
+sel_f=st.selectbox("Fabrication",["Select"]+sorted(df[fab_col].astype(str).unique()))
 
-sel_f = st.selectbox("Fabrication", ["Select"] + sorted(df[fab_col].astype(str).unique()))
+if sel_f!="Select":
+    row=df[df[fab_col]==sel_f].iloc[0]
 
-if sel_f != "Select":
-
-    row = df[df[fab_col]==sel_f].iloc[0]
-
-    col1,col2,col3,col4 = st.columns(4)
-
+    col1,col2,col3,col4=st.columns(4)
     parts=["oil","afc","afe","mof","rof","aos","rgt","1500","3000"]
 
     with col1:
@@ -152,26 +170,25 @@ if sel_f != "Select":
         for p in parts:
             st.write(p.upper(), fmt(smart_get(row,[p,"due"])))
 
+    # EXPORT
+    machine_df=pd.DataFrame([row])
+    st.download_button("📊 Excel", to_excel(machine_df), "machine.xlsx")
+    st.download_button("📄 PDF", to_pdf(machine_df), "machine.pdf")
+
 # ==============================
-# AUTO ALERT (TWILIO)
+# EXPORT DASHBOARD
 # ==============================
-def send_whatsapp(msg):
-    try:
-        client = Client("YOUR_SID","YOUR_TOKEN")
-        client.messages.create(
-            body=msg,
-            from_='whatsapp:+14155238886',
-            to='whatsapp:+91XXXXXXXXXX'
-        )
-    except:
-        pass
+st.subheader("📥 Export Data")
 
-over_col = next((c for c in master.columns if "over" in c.lower()), None)
+st.download_button("📊 Dashboard Excel", to_excel(df), "dashboard.xlsx")
+st.download_button("📄 Dashboard PDF", to_pdf(df), "dashboard.pdf")
 
-if over_col:
-    master[over_col] = pd.to_numeric(master[over_col], errors='coerce').fillna(0)
-    overdue = master[master[over_col] > 0]
+# ==============================
+# WHATSAPP ALERT
+# ==============================
+st.subheader("📢 Alert")
 
-    if len(overdue) > 0:
-        st.error(f"🚨 {len(overdue)} Machines Overdue!")
-        send_whatsapp(f"{len(overdue)} machines overdue!")
+msg=st.text_area("Message","Service Due Alert")
+wa=f"https://wa.me/91XXXXXXXXXX?text={urllib.parse.quote(msg)}"
+
+st.markdown(f"[📱 Send WhatsApp Alert]({wa})")

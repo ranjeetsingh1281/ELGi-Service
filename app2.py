@@ -116,7 +116,7 @@ replacement_cols = [
 for col in replacement_cols:
     c = next((x for x in df.columns if col.lower() in x.lower()), None)
     if c:
-        st.write(f"{col} → {row.get(c, '')}")
+        st.write(f"{col} → {fmt_date(row.get(c, ''))}")
 
 # ===== REMAINING =====
 st.markdown("### ⏳ Remaining Hours")
@@ -141,13 +141,8 @@ for col in remaining_cols:
 
         st.write(f"{color} {col} → {val}")
 
-# ===== DUE DATE =====
-st.markdown("### 📅 Due Dates")
-
-due_cols = [
-    "AF DUE","OF DUE","OIL DUE","AOS DUE","VALVEKIT DUE",
-    "RGT DUE","PF DUE","FF DUE","CF DUE"
-]
+# ================= DUE DATE =================
+st.subheader("📅 Due Dates")
 
 for col in due_cols:
     c = next((x for x in df.columns if col.lower() in x.lower()), None)
@@ -161,59 +156,68 @@ for col in due_cols:
         except:
             pass
 
-        st.write(f"{col} → {due} {overdue}")
+        st.write(f"{col} → {fmt_date(due)} {overdue}")
 
-    # ================= SERVICE HISTORY =================
-    st.subheader("📜 Service History")
 
-    fab_service_col = get_col(service, "fabrication")
+# ================= ✅ SERVICE HISTORY (OUTSIDE LOOP) =================
+st.subheader("📜 Service History")
 
-    if fab_service_col:
-        service_f = service[service[fab_service_col].astype(str) == sel_f]
+fab_service_col = get_col(service, "fabrication")
 
-        if not service_f.empty:
-            show_cols = [
-                get_col(service, "call date"),
-                get_col(service, "call no"),
-                get_col(service, "call type"),
-                get_col(service, "engineer"),
-                get_col(service, "status")
-            ]
+if fab_service_col:
+    service_f = service[service[fab_service_col].astype(str) == sel_f]
 
-            show_cols = [c for c in show_cols if c]
+    if not service_f.empty:
+        show_cols = [
+            get_col(service, "call date"),
+            get_col(service, "call no"),
+            get_col(service, "call type"),
+            get_col(service, "engineer"),
+            get_col(service, "status")
+        ]
 
-            st.dataframe(service_f[show_cols])
-        else:
-            st.info("No Service History Found")
+        show_cols = [c for c in show_cols if c]
 
-    # ================= FOC =================
-    st.subheader("📦 FOC Details")
+        for col in service_f.columns:
+            if "date" in col.lower():
+                service_f[col] = service_f[col].apply(fmt_date)
 
-    fab_foc_col = get_col(foc, "fabrication")
+        st.dataframe(service_f[show_cols])
+    else:
+        st.info("No Service History Found")
 
-    if fab_foc_col:
-        foc_f = foc[foc[fab_foc_col].astype(str) == sel_f]
 
-        if not foc_f.empty:
-            show_cols = [
-                get_col(foc, "foc"),
-                get_col(foc, "work order"),
-                get_col(foc, "customer"),
-                get_col(foc, "type"),
-                get_col(foc, "status"),
-                get_col(foc, "model"),
-                get_col(foc, "fabrication"),
-                get_col(foc, "failure"),
-                get_col(foc, "part"),
-                get_col(foc, "qty")
-            ]
+# ================= ✅ FOC DETAILS (OUTSIDE LOOP) =================
+st.subheader("📦 FOC Details")
 
-            show_cols = [c for c in show_cols if c]
+fab_foc_col = get_col(foc, "fabrication")
 
-            st.dataframe(foc_f[show_cols])
-        else:
-            st.info("No FOC Data Found")
+if fab_foc_col:
+    foc_f = foc[foc[fab_foc_col].astype(str) == sel_f]
 
+    if not foc_f.empty:
+        show_cols = [
+            get_col(foc, "foc"),
+            get_col(foc, "work order"),
+            get_col(foc, "customer"),
+            get_col(foc, "type"),
+            get_col(foc, "status"),
+            get_col(foc, "model"),
+            get_col(foc, "fabrication"),
+            get_col(foc, "failure"),
+            get_col(foc, "part"),
+            get_col(foc, "qty")
+        ]
+
+        show_cols = [c for c in show_cols if c]
+
+        for col in foc_f.columns:
+            if "date" in col.lower():
+                foc_f[col] = foc_f[col].apply(fmt_date)
+
+        st.dataframe(foc_f[show_cols])
+    else:
+        st.info("No FOC Data Found")
 # ================= CHART =================
 st.subheader("📊 Unit Status Chart")
 

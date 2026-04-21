@@ -84,11 +84,11 @@ if w_end_col:
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Status Summary")
 
-amc_status_col = get_col(df, "amc status")
+# 🔥 DIRECT COLUMN NAME (CHANGE IF NEEDED)
+amc_status_col = "AMC Status"
 
-if amc_status_col:
+if amc_status_col in df.columns:
 
-    # Clean values
     df[amc_status_col] = df[amc_status_col].astype(str).str.strip().str.lower()
 
     def map_status(x):
@@ -98,15 +98,22 @@ if amc_status_col:
             return "Not in AMC"
         elif "amc" in x:
             return "AMC"
+        elif x == "" or x == "nan":
+            return "Blank"
         else:
             return "Blank"
 
     df["AMC Clean"] = df[amc_status_col].apply(map_status)
 
-    # Count
-    amc_counts = df["AMC Clean"].value_counts()
+    order = ["AMC", "Expired", "Not in AMC", "Blank"]
+
+    amc_counts = df["AMC Clean"].value_counts().reindex(order, fill_value=0)
 
     st.sidebar.write(amc_counts)
+
+else:
+    st.sidebar.error("AMC Status column not found ❌")
+    
     
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")

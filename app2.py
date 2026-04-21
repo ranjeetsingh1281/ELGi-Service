@@ -85,7 +85,7 @@ if w_end_col:
 st.sidebar.subheader("📆 AMC Status Summary")
 
 # 🔥 DIRECT COLUMN NAME (CHANGE IF NEEDED)
-amc_status_col = "AMC Status"
+amc_status_col = "AMC Status
 
 if amc_status_col in df.columns:
 

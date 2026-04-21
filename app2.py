@@ -102,18 +102,66 @@ if sel_f != "Select":
     st.dataframe(pd.DataFrame([row]))
 
     # ================= PARTS =================
-    st.subheader("🔧 Parts")
+    
+st.subheader("🔧 Parts Full Details")
 
-    parts = ["AF","OF","OIL","AOS","RGT","VK","PF","FF","CF"]
+# ===== REPLACEMENT =====
+st.markdown("### 🔁 Replacement Dates")
 
-    for part in parts:
-        rem_col = next((c for c in df.columns if part.lower() in c.lower() and "rem" in c.lower()), None)
-        due_col = next((c for c in df.columns if part.lower() in c.lower() and "due" in c.lower()), None)
+replacement_cols = [
+    "Oil R Date","AF R Date","OF R Date","AOS R Date","RGT R Date",
+    "Valvekit R Date","DSF Availability","PF R DATE","FF R DATE","CF R DATE"
+]
 
-        rem = row.get(rem_col, "")
-        due = row.get(due_col, "")
+for col in replacement_cols:
+    c = next((x for x in df.columns if col.lower() in x.lower()), None)
+    if c:
+        st.write(f"{col} → {row.get(c, '')}")
 
-        st.write(f"{part} → Remaining: {rem} | Due: {due}")
+# ===== REMAINING =====
+st.markdown("### ⏳ Remaining Hours")
+
+remaining_cols = [
+    "AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"
+]
+
+for col in remaining_cols:
+    c = next((x for x in df.columns if col.lower() in x.lower()), None)
+    if c:
+        val = row.get(c, "")
+
+        color = "🟢"
+        try:
+            if float(val) < 200:
+                color = "🔴"
+            elif float(val) < 500:
+                color = "🟡"
+        except:
+            pass
+
+        st.write(f"{color} {col} → {val}")
+
+# ===== DUE DATE =====
+st.markdown("### 📅 Due Dates")
+
+due_cols = [
+    "AF DUE","OF DUE","OIL DUE","AOS DUE","VALVEKIT DUE",
+    "RGT DUE","PF DUE","FF DUE","CF DUE"
+]
+
+for col in due_cols:
+    c = next((x for x in df.columns if col.lower() in x.lower()), None)
+    if c:
+        due = row.get(c, "")
+
+        overdue = ""
+        try:
+            if pd.to_datetime(due, errors='coerce') < pd.Timestamp.today():
+                overdue = "⚠️ OVERDUE"
+        except:
+            pass
+
+        st.write(f"{col} → {due} {overdue}")
 
     # ================= SERVICE HISTORY =================
     st.subheader("📜 Service History")
@@ -170,7 +218,16 @@ if sel_f != "Select":
 st.subheader("📊 Unit Status Chart")
 
 if connect_col:
-    fig = px.pie(df_f, names=connect_col)
+    
+    allowed = ["Within 3 months", "Above 3 months", "P1", ""]
+
+    df_chart = df_f[df_f[connect_col].isin(allowed)].copy()
+
+    # Blank handling
+    df_chart[connect_col] = df_chart[connect_col].replace("", "Blank")
+
+    fig = px.pie(df_chart, names=connect_col)
+
     st.plotly_chart(fig, use_container_width=True)
 
 # ================= WHATSAPP =================

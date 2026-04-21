@@ -79,7 +79,6 @@ if w_end_col:
 
         # 👉 Month name convert (premium look)
         monthly.index = monthly.index.map(lambda x: pd.to_datetime(str(x), format="%m").strftime("%b"))
-
         st.sidebar.write(monthly)
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Status Summary")

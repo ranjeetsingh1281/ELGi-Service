@@ -88,53 +88,26 @@ amc_status_col = get_col(df, "amc status")
 
 if amc_status_col:
 
-    # Normalize values
+    # Clean values
     df[amc_status_col] = df[amc_status_col].astype(str).str.strip().str.lower()
 
-    # Mapping (clean categories)
     def map_status(x):
         if "expire" in x:
             return "Expired"
-        elif "amc" in x:
-            return "AMC"
         elif "not" in x:
             return "Not in AMC"
+        elif "amc" in x:
+            return "AMC"
         else:
             return "Blank"
 
     df["AMC Clean"] = df[amc_status_col].apply(map_status)
 
+    # Count
     amc_counts = df["AMC Clean"].value_counts()
 
     st.sidebar.write(amc_counts)
-
-st.sidebar.subheader("📅 AMC Expired (Monthly)")
-
-amc_date_col = get_col(df, "amc")
-
-if amc_status_col and amc_date_col:
-
-    df[amc_date_col] = pd.to_datetime(df[amc_date_col], errors='coerce')
-
-    # 👉 Only Expired
-    df_exp = df[df["AMC Clean"] == "Expired"].dropna(subset=[amc_date_col])
-
-    if not df_exp.empty:
-
-        years = sorted(df_exp[amc_date_col].dt.year.unique())
-
-        year = st.sidebar.selectbox("AMC Year", years)
-
-        df_year = df_exp[df_exp[amc_date_col].dt.year == year]
-
-        monthly = df_year.groupby(df_year[amc_date_col].dt.month).size()
-
-        # Month name
-        monthly.index = monthly.index.map(
-            lambda x: pd.to_datetime(str(x), format="%m").strftime("%b")
-        )
-
-        st.sidebar.write(monthly)
+    
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

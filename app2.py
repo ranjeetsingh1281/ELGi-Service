@@ -15,7 +15,14 @@ service = pd.read_excel("Service_Details.xlsx").fillna("")
 df.columns = df.columns.str.strip()
 foc.columns = foc.columns.str.strip()
 service.columns = service.columns.str.strip()
-
+def fmt_date(val):
+    try:
+        dt = pd.to_datetime(val, errors='coerce')
+        if pd.isna(dt):
+            return ""
+        return dt.strftime("%d-%b-%y")
+    except:
+        return str(val)
 # ================= COLUMN FIND =================
 def get_col(df, keyword):
     return next((c for c in df.columns if keyword.lower() in c.lower()), None)
@@ -62,33 +69,44 @@ if cat_col:
     st.sidebar.write(df_f[cat_col].value_counts())
 
 # ================= WARRANTY =================
-st.sidebar.subheader("📅 Warranty Monthly")
+st.sidebar.subheader("📅 Warranty Expiry (Monthly)")
 
 if w_col:
+
     df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
     df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
 
     df_w = df.dropna(subset=["Warranty End"])
 
     if not df_w.empty:
-        year = st.sidebar.selectbox("Warranty Year", sorted(df_w["Warranty End"].dt.year.unique()))
+
+        years = sorted(df_w["Warranty End"].dt.year.unique())
+        year = st.sidebar.selectbox("Warranty Year", years)
+
         df_wy = df_w[df_w["Warranty End"].dt.year == year]
 
-        st.sidebar.write(df_wy["Warranty End"].dt.month.value_counts().sort_index())
+        monthly = df_wy.groupby(df_wy["Warranty End"].dt.month).size()
 
+        st.sidebar.write(monthly)
 # ================= AMC =================
-st.sidebar.subheader("📆 AMC Monthly")
+st.sidebar.subheader("📆 AMC Expiry (Monthly)")
 
 if amc_col:
+
     df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
 
     df_a = df.dropna(subset=[amc_col])
 
     if not df_a.empty:
-        year_a = st.sidebar.selectbox("AMC Year", sorted(df_a[amc_col].dt.year.unique()))
+
+        years = sorted(df_a[amc_col].dt.year.unique())
+        year_a = st.sidebar.selectbox("AMC Year", years)
+
         df_ay = df_a[df_a[amc_col].dt.year == year_a]
 
-        st.sidebar.write(df_ay[amc_col].dt.month.value_counts().sort_index())
+        monthly_a = df_ay.groupby(df_ay[amc_col].dt.month).size()
+
+        st.sidebar.write(monthly_a)
 
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")

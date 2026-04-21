@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 import plotly.express as px
 from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Table
 
 st.set_page_config(layout="wide")
 
@@ -11,6 +10,11 @@ st.set_page_config(layout="wide")
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 foc = pd.read_excel("Active_FOC.xlsx").fillna("")
 service = pd.read_excel("Service_Details.xlsx").fillna("")
+
+df.columns = df.columns.str.strip()
+foc.columns = foc.columns.str.strip()
+service.columns = service.columns.str.strip()
+
 # ================= DATE FORMAT =================
 def fmt_date(val):
     try:
@@ -20,17 +24,7 @@ def fmt_date(val):
         return dt.strftime("%d-%b-%y")
     except:
         return str(val)
-df.columns = df.columns.str.strip()
-foc.columns = foc.columns.str.strip()
-service.columns = service.columns.str.strip()
-def fmt_date(val):
-    try:
-        dt = pd.to_datetime(val, errors='coerce')
-        if pd.isna(dt):
-            return ""
-        return dt.strftime("%d-%b-%y")
-    except:
-        return str(val)
+
 # ================= COLUMN FIND =================
 def get_col(df, keyword):
     return next((c for c in df.columns if keyword.lower() in c.lower()), None)
@@ -44,24 +38,10 @@ amc_col = get_col(df, "amc")
 
 # ================= FILTER =================
 df[cust_col] = df[cust_col].astype(str)
-
 customers = ["All"] + sorted(df[cust_col].unique())
 sel = st.sidebar.selectbox("Customer", customers)
 
 df_f = df if sel == "All" else df[df[cust_col] == sel]
-
-# ================= EXPORT =================
-def to_excel(data):
-    buf = BytesIO()
-    data.to_excel(buf, index=False)
-    return buf.getvalue()
-
-def to_pdf(data):
-    buf = BytesIO()
-    doc = SimpleDocTemplate(buf)
-    table = Table([data.columns.tolist()] + data.astype(str).values.tolist())
-    doc.build([table])
-    return buf.getvalue()
 
 # ================= DASHBOARD =================
 st.title("🏭 Industrial Dashboard")
@@ -80,40 +60,31 @@ if cat_col:
 st.sidebar.subheader("📅 Warranty Expiry (Monthly)")
 
 if w_col:
-
     df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
     df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
 
     df_w = df.dropna(subset=["Warranty End"])
 
     if not df_w.empty:
-
-        years = sorted(df_w["Warranty End"].dt.year.unique())
-        year = st.sidebar.selectbox("Warranty Year", years)
-
+        year = st.sidebar.selectbox("Warranty Year", sorted(df_w["Warranty End"].dt.year.unique()))
         df_wy = df_w[df_w["Warranty End"].dt.year == year]
 
         monthly = df_wy.groupby(df_wy["Warranty End"].dt.month).size()
-
         st.sidebar.write(monthly)
+
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Expiry (Monthly)")
 
 if amc_col:
-
     df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
 
     df_a = df.dropna(subset=[amc_col])
 
     if not df_a.empty:
-
-        years = sorted(df_a[amc_col].dt.year.unique())
-        year_a = st.sidebar.selectbox("AMC Year", years)
-
+        year_a = st.sidebar.selectbox("AMC Year", sorted(df_a[amc_col].dt.year.unique()))
         df_ay = df_a[df_a[amc_col].dt.year == year_a]
 
         monthly_a = df_ay.groupby(df_ay[amc_col].dt.month).size()
-
         st.sidebar.write(monthly_a)
 
 # ================= MACHINE TRACKER =================
@@ -128,140 +99,103 @@ if sel_f != "Select":
     st.dataframe(pd.DataFrame([row]))
 
     # ================= PARTS =================
-    
-st.subheader("🔧 Parts Full Details")
+    st.subheader("🔧 Parts Full Details")
 
-# ===== REPLACEMENT =====
-st.markdown("### 🔁 Replacement Dates")
+    # Replacement
+    st.markdown("### 🔁 Replacement Dates")
+    replacement_cols = [
+        "Oil R Date","AF R Date","OF R Date","AOS R Date","RGT R Date",
+        "Valvekit R Date","PF R DATE","FF R DATE","CF R DATE"
+    ]
 
-replacement_cols = [
-    "Oil R Date","AF R Date","OF R Date","AOS R Date","RGT R Date",
-    "Valvekit R Date","DSF Availability","PF R DATE","FF R DATE","CF R DATE"
-]
+    for col in replacement_cols:
+        c = get_col(df, col)
+        if c:
+            st.write(f"{col} → {fmt_date(row.get(c,''))}")
 
-for col in replacement_cols:
-    c = next((x for x in df.columns if col.lower() in x.lower()), None)
-    if c:
-        st.write(f"{col} → {fmt_date(row.get(c, ''))}")
+    # Remaining
+    st.markdown("### ⏳ Remaining Hours")
+    remaining_cols = [
+        "AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"
+    ]
 
-# ===== REMAINING =====
-st.markdown("### ⏳ Remaining Hours")
+    for col in remaining_cols:
+        c = get_col(df, col)
+        if c:
+            val = row.get(c, "")
+            color = "🟢"
+            try:
+                if float(val) < 200:
+                    color = "🔴"
+                elif float(val) < 500:
+                    color = "🟡"
+            except:
+                pass
 
-remaining_cols = [
-    "AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"
-]
+            st.write(f"{color} {col} → {val}")
 
-for col in remaining_cols:
-    c = next((x for x in df.columns if col.lower() in x.lower()), None)
-    if c:
-        val = row.get(c, "")
+    # Due Dates
+    st.markdown("### 📅 Due Dates")
+    due_cols = [
+        "AF DUE","OF DUE","OIL DUE","AOS DUE","VALVEKIT DUE",
+        "RGT DUE","PF DUE","FF DUE","CF DUE"
+    ]
 
-        color = "🟢"
-        try:
-            if float(val) < 200:
-                color = "🔴"
-            elif float(val) < 500:
-                color = "🟡"
-        except:
-            pass
+    for col in due_cols:
+        c = get_col(df, col)
+        if c:
+            due = row.get(c, "")
+            overdue = ""
 
-        st.write(f"{color} {col} → {val}")
+            try:
+                if pd.to_datetime(due, errors='coerce') < pd.Timestamp.today():
+                    overdue = "⚠️ OVERDUE"
+            except:
+                pass
 
-# ================= DUE DATE =================
-st.subheader("📅 Due Dates")
+            st.write(f"{col} → {fmt_date(due)} {overdue}")
 
-for col in due_cols:
-    c = next((x for x in df.columns if col.lower() in x.lower()), None)
-    if c:
-        due = row.get(c, "")
+    # ================= SERVICE =================
+    st.subheader("📜 Service History")
 
-        overdue = ""
-        try:
-            if pd.to_datetime(due, errors='coerce') < pd.Timestamp.today():
-                overdue = "⚠️ OVERDUE"
-        except:
-            pass
+    fab_service_col = get_col(service, "fabrication")
 
-        st.write(f"{col} → {fmt_date(due)} {overdue}")
+    if fab_service_col:
+        service_f = service[service[fab_service_col].astype(str) == sel_f]
 
+        if not service_f.empty:
+            for col in service_f.columns:
+                if "date" in col.lower():
+                    service_f[col] = service_f[col].apply(fmt_date)
 
-# ================= ✅ SERVICE HISTORY (OUTSIDE LOOP) =================
-st.subheader("📜 Service History")
+            st.dataframe(service_f)
+        else:
+            st.info("No Service History Found")
 
-fab_service_col = get_col(service, "fabrication")
+    # ================= FOC =================
+    st.subheader("📦 FOC Details")
 
-if fab_service_col:
-    service_f = service[service[fab_service_col].astype(str) == sel_f]
+    fab_foc_col = get_col(foc, "fabrication")
 
-    if not service_f.empty:
-        show_cols = [
-            get_col(service, "call date"),
-            get_col(service, "call no"),
-            get_col(service, "call type"),
-            get_col(service, "engineer"),
-            get_col(service, "status")
-        ]
+    if fab_foc_col:
+        foc_f = foc[foc[fab_foc_col].astype(str) == sel_f]
 
-        show_cols = [c for c in show_cols if c]
+        if not foc_f.empty:
+            for col in foc_f.columns:
+                if "date" in col.lower():
+                    foc_f[col] = foc_f[col].apply(fmt_date)
 
-        for col in service_f.columns:
-            if "date" in col.lower():
-                service_f[col] = service_f[col].apply(fmt_date)
+            st.dataframe(foc_f)
+        else:
+            st.info("No FOC Data Found")
 
-        st.dataframe(service_f[show_cols])
-    else:
-        st.info("No Service History Found")
-
-
-# ================= ✅ FOC DETAILS (OUTSIDE LOOP) =================
-st.subheader("📦 FOC Details")
-
-fab_foc_col = get_col(foc, "fabrication")
-
-if fab_foc_col:
-    foc_f = foc[foc[fab_foc_col].astype(str) == sel_f]
-
-    if not foc_f.empty:
-        show_cols = [
-            get_col(foc, "foc"),
-            get_col(foc, "work order"),
-            get_col(foc, "customer"),
-            get_col(foc, "type"),
-            get_col(foc, "status"),
-            get_col(foc, "model"),
-            get_col(foc, "fabrication"),
-            get_col(foc, "failure"),
-            get_col(foc, "part"),
-            get_col(foc, "qty")
-        ]
-
-        show_cols = [c for c in show_cols if c]
-
-        for col in foc_f.columns:
-            if "date" in col.lower():
-                foc_f[col] = foc_f[col].apply(fmt_date)
-
-        st.dataframe(foc_f[show_cols])
-    else:
-        st.info("No FOC Data Found")
-# ================= CHART =================
+# ================= PIE CHART =================
 st.subheader("📊 Unit Status Chart")
 
 if connect_col:
-    
-    allowed = ["Within 3 months", "Above 3 months", "P1", ""]
-
+    allowed = ["Within 3 months","Above 3 months","P1",""]
     df_chart = df_f[df_f[connect_col].isin(allowed)].copy()
-
-    # Blank handling
     df_chart[connect_col] = df_chart[connect_col].replace("", "Blank")
 
     fig = px.pie(df_chart, names=connect_col)
-
     st.plotly_chart(fig, use_container_width=True)
-
-# ================= WHATSAPP =================
-st.subheader("📲 WhatsApp Alert")
-
-if st.button("Send Alert"):
-    st.success("✅ Alert Sent (Demo)")

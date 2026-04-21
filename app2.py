@@ -59,34 +59,58 @@ if cat_col:
 # ================= WARRANTY =================
 st.sidebar.subheader("📅 Warranty Expiry (Monthly)")
 
-if w_col:
-    df[w_col] = pd.to_datetime(df[w_col], errors='coerce')
-    df["Warranty End"] = df[w_col] + pd.DateOffset(years=1)
+w_end_col = get_col(df, "warranty end")
 
-    df_w = df.dropna(subset=["Warranty End"])
+if w_end_col:
+
+    df[w_end_col] = pd.to_datetime(df[w_end_col], errors='coerce')
+
+    df_w = df.dropna(subset=[w_end_col])
 
     if not df_w.empty:
-        year = st.sidebar.selectbox("Warranty Year", sorted(df_w["Warranty End"].dt.year.unique()))
-        df_wy = df_w[df_w["Warranty End"].dt.year == year]
 
-        monthly = df_wy.groupby(df_wy["Warranty End"].dt.month).size()
+        years = sorted(df_w[w_end_col].dt.year.dropna().unique())
+
+        year = st.sidebar.selectbox("Warranty Year", years)
+
+        df_wy = df_w[df_w[w_end_col].dt.year == year]
+
+        monthly = df_wy.groupby(df_wy[w_end_col].dt.month).size()
+
+        # 👉 Month name convert (premium look)
+        monthly.index = monthly.index.map(lambda x: pd.to_datetime(str(x), format="%m").strftime("%b"))
+
         st.sidebar.write(monthly)
-
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Expiry (Monthly)")
 
-if amc_col:
-    df[amc_col] = pd.to_datetime(df[amc_col], errors='coerce')
+amc_status_col = get_col(df, "amc status")
+amc_date_col = get_col(df, "amc")
 
-    df_a = df.dropna(subset=[amc_col])
+if amc_status_col and amc_date_col:
+
+    df[amc_date_col] = pd.to_datetime(df[amc_date_col], errors='coerce')
+
+    # 👉 Only expired
+    df_a = df[df[amc_status_col].astype(str).str.lower().str.contains("expire")]
+
+    df_a = df_a.dropna(subset=[amc_date_col])
 
     if not df_a.empty:
-        year_a = st.sidebar.selectbox("AMC Year", sorted(df_a[amc_col].dt.year.unique()))
-        df_ay = df_a[df_a[amc_col].dt.year == year_a]
 
-        monthly_a = df_ay.groupby(df_ay[amc_col].dt.month).size()
+        years = sorted(df_a[amc_date_col].dt.year.unique())
+
+        year_a = st.sidebar.selectbox("AMC Year", years)
+
+        df_ay = df_a[df_a[amc_date_col].dt.year == year_a]
+
+        monthly_a = df_ay.groupby(df_ay[amc_date_col].dt.month).size()
+
+        # 👉 Month name
+        monthly_a.index = monthly_a.index.map(lambda x: pd.to_datetime(str(x), format="%m").strftime("%b"))
+
         st.sidebar.write(monthly_a)
-
+        
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

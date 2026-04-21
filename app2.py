@@ -11,7 +11,15 @@ st.set_page_config(layout="wide")
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 foc = pd.read_excel("Active_FOC.xlsx").fillna("")
 service = pd.read_excel("Service_Details.xlsx").fillna("")
-
+# ================= DATE FORMAT =================
+def fmt_date(val):
+    try:
+        dt = pd.to_datetime(val, errors='coerce')
+        if pd.isna(dt):
+            return ""
+        return dt.strftime("%d-%b-%y")
+    except:
+        return str(val)
 df.columns = df.columns.str.strip()
 foc.columns = foc.columns.str.strip()
 service.columns = service.columns.str.strip()

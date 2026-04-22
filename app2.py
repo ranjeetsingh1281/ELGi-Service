@@ -45,7 +45,27 @@ df_f = df if sel == "All" else df[df[cust_col] == sel]
 
 # ================= DASHBOARD =================
 st.title("🏭 Industrial Dashboard")
-st.metric("Total Units", len(df_f))
+# ================= KPI COUNTS (MASTER आधारित) =================
+
+overdue_col = get_col(df, "over due")
+curr_col = get_col(df, "current month")
+next_col = get_col(df, "next month")
+
+def count_flag(series):
+    return series.astype(str).str.strip().str.lower().isin(
+        ["yes","y","1","true"]
+    ).sum()
+
+overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
+current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
+next_month_count = count_flag(df_f[next_col]) if next_col else 0
+
+col1,col2,col3,col4 = st.columns(4)
+
+col1.metric("Total Units", len(df_f))
+col2.metric("Overdue", overdue_count)
+col3.metric("Current Month Due", current_month_count)
+col4.metric("Next Month Due", next_month_count)
 
 # ================= SIDEBAR =================
 if connect_col:
@@ -113,7 +133,42 @@ if amc_status_col in df.columns:
 else:
     st.sidebar.error("AMC Status column not found ❌")
     
-    
+# ================= CLICKABLE OVERDUE =================
+
+st.markdown("### ⚠️ Overdue Units")
+
+if overdue_col:
+
+    overdue_df = df_f[
+        df_f[overdue_col].astype(str).str.strip().str.lower().isin(
+            ["yes","y","1","true"]
+        )
+    ]
+
+    if not overdue_df.empty:
+
+        st.success(f"{len(overdue_df)} Overdue Units Found")
+
+        fab_col = get_col(df,"fabrication")
+
+        machines = overdue_df[fab_col].astype(str).unique()
+
+        sel_machine = st.selectbox(
+            "Select Overdue Machine",
+            machines
+        )
+
+        if sel_machine:
+
+            row = overdue_df[
+                overdue_df[fab_col].astype(str)==sel_machine
+            ]
+
+            st.dataframe(row)
+
+    else:
+        st.info("No Overdue Units")
+        
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

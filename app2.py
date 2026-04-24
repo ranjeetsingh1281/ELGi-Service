@@ -188,29 +188,7 @@ if overdue_col:
 
     if not overdue_df.empty:
 
-        st.success(f"{len(overdue_df)} Overdue Units Found")
-
-        fab_col = get_col(df,"fabrication")
-
-        machines = overdue_df[fab_col].astype(str).unique()
-
-        sel_machine = st.selectbox(
-    "Select Overdue Machine",
-    machines,
-    key="overdue_machine_select"
-)
-
-        if sel_machine:
-
-            row = overdue_df[
-                overdue_df[fab_col].astype(str)==sel_machine
-            ]
-
-            st.dataframe(row)
-
-    else:
-        st.info("No Overdue Units")
-        
+             
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

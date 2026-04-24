@@ -215,7 +215,11 @@ if overdue_col:
 st.subheader("🔍 Machine Tracker")
 
 machines = ["Select"] + list(df_f[fab_col].unique())
-sel_f = st.selectbox("Select Machine", machines)
+sel_f = st.selectbox(
+    "Select Machine",
+    machines,
+    key="main_machine_tracker"
+)
 
 if sel_f != "Select":
 

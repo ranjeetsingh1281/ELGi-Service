@@ -147,11 +147,50 @@ st.markdown("### ⚠️ Overdue Units")
 
 if overdue_col:
 
+    # ================= CLICKABLE OVERDUE =================
+
+st.markdown("### ⚠️ Overdue Units")
+
+if overdue_col:
+
+    # ONLY rows where Over Due = 1
     overdue_df = df_f[
-        df_f[overdue_col].astype(str).str.strip().str.lower().isin(
-            ["yes","y","1","true"]
-        )
+        df_f[overdue_col]
+        .astype(str)
+        .str.strip()
+        .isin(["1","1.0"])
     ]
+
+    if not overdue_df.empty:
+
+        st.success(
+            f"{len(overdue_df)} Overdue Units Found"
+        )
+
+        fab_col = get_col(df,"fabrication")
+
+        machines = (
+            overdue_df[fab_col]
+            .astype(str)
+            .unique()
+        )
+
+        sel_machine = st.selectbox(
+            "Select Overdue Machine",
+            machines
+        )
+
+        if sel_machine:
+
+            row = overdue_df[
+                overdue_df[fab_col]
+                .astype(str)==sel_machine
+            ]
+
+            st.dataframe(row)
+
+    else:
+        st.info("No Overdue Units")
 
     if not overdue_df.empty:
 

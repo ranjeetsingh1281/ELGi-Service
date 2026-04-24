@@ -178,32 +178,52 @@ if overdue_col:
 
         if sel_machine:
 
-            row = overdue_df[
-                overdue_df[fab_col]
-                .astype(str)==sel_machine
-            ]
+    row = overdue_df[
+        overdue_df[fab_col].astype(str)==sel_machine
+    ]
 
-            st.dataframe(row)
-            # ===== PRIORITY COLOR =====
+    st.dataframe(row)
 
-curr_col = get_col(df,"current month due")
-next_col = get_col(df,"next month due")
+    # ===== PRIORITY COLOR =====
 
-ov = str(row[overdue_col].iloc[0]).strip()
-cm = str(row[curr_col].iloc[0]).strip() if curr_col else "0"
-nm = str(row[next_col].iloc[0]).strip() if next_col else "0"
+    curr_col = get_col(df,"current month due")
+    next_col = get_col(df,"next month due")
 
-if ov in ["1","1.0"]:
-    st.error("🔴 PRIORITY RED : OVERDUE")
+    ov = str(row[overdue_col].iloc[0]).strip()
 
-elif cm in ["1","1.0"]:
-    st.warning("🟠 PRIORITY AMBER : CURRENT MONTH DUE")
+    cm = (
+        str(row[curr_col].iloc[0]).strip()
+        if curr_col else "0"
+    )
 
-elif nm in ["1","1.0"]:
-    st.success("🟢 PRIORITY GREEN : NEXT MONTH DUE")
+    nm = (
+        str(row[next_col].iloc[0]).strip()
+        if next_col else "0"
+    )
 
-else:
-    st.info("⚪ NORMAL")
+    if ov in ["1","1.0"]:
+
+        st.error(
+            "🔴 PRIORITY RED : OVERDUE"
+        )
+
+    elif cm in ["1","1.0"]:
+
+        st.warning(
+            "🟠 PRIORITY AMBER : CURRENT MONTH DUE"
+        )
+
+    elif nm in ["1","1.0"]:
+
+        st.success(
+            "🟢 PRIORITY GREEN : NEXT MONTH DUE"
+        )
+
+    else:
+
+        st.info(
+            "⚪ NORMAL"
+        )
 
     else:
         st.info("No Overdue Units")

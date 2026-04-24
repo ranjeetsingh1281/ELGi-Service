@@ -141,12 +141,6 @@ if amc_status_col in df.columns:
 else:
     st.sidebar.error("AMC Status column not found ❌")
     
-# ================= CLICKABLE OVERDUE =================
-
-st.markdown("### ⚠️ Overdue Units")
-
-if overdue_col:
-
     # ================= CLICKABLE OVERDUE =================
 
 st.markdown("### ⚠️ Overdue Units")

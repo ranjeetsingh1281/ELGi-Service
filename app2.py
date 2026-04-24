@@ -47,14 +47,21 @@ df_f = df if sel == "All" else df[df[cust_col] == sel]
 st.title("🏭 Industrial Dashboard")
 # ================= KPI COUNTS (MASTER आधारित) =================
 
-overdue_col = get_col(df, "over due")
-curr_col = get_col(df, "current month")
-next_col = get_col(df, "next month")
+overdue_col = get_col(df,"over due")
+curr_col   = get_col(df,"current month due")
+next_col   = get_col(df,"next month due")
 
 def count_flag(series):
-    return series.astype(str).str.strip().str.lower().isin(
-        ["yes", "y", "1", "true"]
-    ).sum()
+    
+    s = series.astype(str).str.strip().str.lower()
+
+    return s.isin([
+        "1",
+        "1.0",
+        "yes",
+        "y",
+        "true"
+    ]).sum()
 
 overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
 current_month_count = count_flag(df_f[curr_col]) if curr_col else 0

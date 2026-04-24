@@ -141,19 +141,20 @@ if amc_status_col in df.columns:
 else:
     st.sidebar.error("AMC Status column not found ❌")
     
-    # ================= CLICKABLE OVERDUE =================
-
-st.markdown("### ⚠️ Overdue Units")
+# ================= CLICKABLE OVERDUE =================
 
 if overdue_col:
 
-    # ONLY rows where Over Due = 1
-    overdue_df = df_f[
+    st.markdown("### ⚠️ Overdue Units")
+
+    flag_mask = (
         df_f[overdue_col]
         .astype(str)
         .str.strip()
         .isin(["1","1.0"])
-    ]
+    )
+
+    overdue_df = df_f[flag_mask]
 
     if not overdue_df.empty:
 
@@ -171,7 +172,8 @@ if overdue_col:
 
         sel_machine = st.selectbox(
             "Select Overdue Machine",
-            machines
+            machines,
+            key="overdue_machine_select"
         )
 
         if sel_machine:
@@ -186,9 +188,11 @@ if overdue_col:
     else:
         st.info("No Overdue Units")
 
-    if not overdue_df.empty:
+else:
+    st.warning("Over Due column not found")
 
-             
+
+            
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

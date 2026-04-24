@@ -56,7 +56,7 @@ def count_flag(series):
         ["yes","y","1","true"]
     ).sum()
 
-overdue_count = count_flag(df_f[over_col]) if over_col else 0
+overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
 current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
 next_month_count = count_flag(df_f[next_col]) if next_col else 0
 

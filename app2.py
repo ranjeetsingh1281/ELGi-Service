@@ -195,9 +195,10 @@ if overdue_col:
         machines = overdue_df[fab_col].astype(str).unique()
 
         sel_machine = st.selectbox(
-            "Select Overdue Machine",
-            machines
-        )
+    "Select Overdue Machine",
+    machines,
+    key="overdue_machine_select"
+)
 
         if sel_machine:
 

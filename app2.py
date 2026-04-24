@@ -203,9 +203,6 @@ if overdue_col:
     else:
         st.info("⚪ NORMAL")
 
-    else:
-        st.info("No Overdue Units")
-
 else:
     st.warning("Over Due column not found")
 

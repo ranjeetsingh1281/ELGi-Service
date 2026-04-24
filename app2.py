@@ -178,8 +178,8 @@ if overdue_col:
 
         if sel_machine:
 
-    row = overdue_df[
-        overdue_df[fab_col].astype(str)==sel_machine
+            row = overdue_df[
+                overdue_df[fab_col].astype(str)==sel_machine
     ]
 
     st.dataframe(row)

@@ -60,10 +60,11 @@ overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
 current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
 next_month_count = count_flag(df_f[next_col]) if next_col else 0
 
-col1,col2,col3,col4 = st.columns(4)
+# ================= DISPLAY =================
+col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Total Units", len(df_f))
-col2.metric("Over Due", over_Due_count)
+col2.metric("Overdue", overdue_count)
 col3.metric("Current Month Due", current_month_count)
 col4.metric("Next Month Due", next_month_count)
 

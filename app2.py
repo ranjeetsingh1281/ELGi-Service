@@ -297,7 +297,13 @@ sel_f = st.selectbox(
     key="main_machine_tracker"
 )
 
-if sel_f != "Select":
+
+    if sel_f != "Select":
+
+    row = df_f[df_f[fab_col] == sel_f].iloc[0]
+    st.dataframe(pd.DataFrame([row]))
+
+    r = row
 
     row = df_f[df_f[fab_col] == sel_f].iloc[0]
     st.dataframe(pd.DataFrame([row]))
@@ -340,97 +346,101 @@ with b:
         )
 
 
-    # ================= PARTS =================
-    st.subheader("🔧 Parts Full Details")
+  # ================= MACHINE TRACKER =================
+st.subheader("🔍 Machine Tracker")
 
-    # Replacement
-    st.markdown("### 🔁 Replacement Dates")
-    replacement_cols = [
-        "Oil R Date","AF R Date","OF R Date","AOS R Date","RGT R Date",
-        "Valvekit R Date","PF R DATE","FF R DATE","CF R DATE"
-    ]
+machines = ["Select"] + list(df_f[fab_col].unique())
 
-    for col in replacement_cols:
-        c = get_col(df, col)
-        if c:
-            st.write(f"{col} → {fmt_date(row.get(c,''))}")
+sel_f = st.selectbox(
+    "Select Machine",
+    machines,
+    key="main_machine_tracker"
+)
 
-    # Remaining
-    st.markdown("### ⏳ Remaining Hours")
-    remaining_cols = [
-        "AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"
-    ]
+if sel_f != "Select":
 
-    for col in remaining_cols:
-        c = get_col(df, col)
-        if c:
-            val = row.get(c, "")
-            color = "🟢"
-            try:
-                if float(val) < 200:
-                    color = "🔴"
-                elif float(val) < 500:
-                    color = "🟡"
-            except:
-                pass
+    row = df_f[df_f[fab_col] == sel_f].iloc[0]
 
-            st.write(f"{color} {col} → {val}")
+    st.dataframe(pd.DataFrame([row]))
 
-    # Due Dates
-    st.markdown("### 📅 Due Dates")
-    due_cols = [
-        "AF DUE","OF DUE","OIL DUE","AOS DUE","VALVEKIT DUE",
-        "RGT DUE","PF DUE","FF DUE","CF DUE"
-    ]
+    r=row
 
-    for col in due_cols:
-        c = get_col(df, col)
-        if c:
-            due = row.get(c, "")
-            overdue = ""
+    def pick(h):
+        c=get_col(df,h)
+        return r.get(c,"-") if c else "-"
 
-            try:
-                if pd.to_datetime(due, errors='coerce') < pd.Timestamp.today():
-                    overdue = "⚠️ OVERDUE"
-            except:
-                pass
+    a,b,c,d=st.columns(4)
 
-            st.write(f"{col} → {fmt_date(due)} {overdue}")
+    with a:
+        st.markdown("### 👤 Customer Info")
+        st.write("Customer:",pick("customer"))
+        st.write("Model:",pick("model"))
+        st.write("Location:",pick("location"))
 
-    # ================= SERVICE =================
+    with b:
+        st.markdown("### 🔧 Replacement Dates")
+
+        for p in [
+          "AF R Date","OF R Date","Oil R Date",
+          "AOS R Date","RGT R Date",
+          "Valvekit R Date",
+          "PF R DATE","FF R DATE","CF R DATE"
+        ]:
+            st.write(f"{p}: {fmt_date(pick(p))}")
+
+
+    with c:
+        st.markdown("### ⏳ Remaining Hours")
+
+        for p in [
+           "AF Rem","OF Rem","OIL Rem",
+           "AOS Rem","VK Rem","RGT Rem"
+        ]:
+            st.write(f"{p}: {pick(p)}")
+
+
+    with d:
+        st.markdown("### 📅 Due Dates")
+
+        for p in [
+           "AF DUE DATE","OF DUE DATE","OIL DUE DATE",
+           "AOS DUE DATE","VALVEKIT DUE DATE",
+           "RGT DUE DATE","PF DUE DATE",
+           "FF DUE DATE","CF DUE DATE"
+        ]:
+            st.write(f"{p}: {fmt_date(pick(p))}")
+
+
+    # Service History
     st.subheader("📜 Service History")
 
-    fab_service_col = get_col(service, "fabrication")
+    fab_service_col=get_col(service,"fabrication")
 
     if fab_service_col:
-        service_f = service[service[fab_service_col].astype(str) == sel_f]
+        svc=service[
+          service[fab_service_col].astype(str)==sel_f
+        ]
 
-        if not service_f.empty:
-            for col in service_f.columns:
-                if "date" in col.lower():
-                    service_f[col] = service_f[col].apply(fmt_date)
-
-            st.dataframe(service_f)
+        if not svc.empty:
+            st.dataframe(svc)
         else:
-            st.info("No Service History Found")
+            st.info("No Service History")
 
-    # ================= FOC =================
+
+    # FOC
     st.subheader("📦 FOC Details")
 
-    fab_foc_col = get_col(foc, "fabrication")
+    fab_foc_col=get_col(foc,"fabrication")
 
     if fab_foc_col:
-        foc_f = foc[foc[fab_foc_col].astype(str) == sel_f]
+        foc_f=foc[
+          foc[fab_foc_col].astype(str)==sel_f
+        ]
 
         if not foc_f.empty:
-            for col in foc_f.columns:
-                if "date" in col.lower():
-                    foc_f[col] = foc_f[col].apply(fmt_date)
-
             st.dataframe(foc_f)
         else:
-            st.info("No FOC Data Found")
-
+            st.info("No FOC Data")
 # ================= PIE CHART =================
 st.subheader("📊 Unit Status Chart")
 

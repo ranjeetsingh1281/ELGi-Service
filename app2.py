@@ -291,22 +291,41 @@ with c4:
 st.subheader("🔍 Machine Tracker")
 
 machines = ["Select"] + list(df_f[fab_col].unique())
+
 sel_f = st.selectbox(
     "Select Machine",
     machines,
     key="main_machine_tracker"
 )
 
-
-    if sel_f != "Select":
-
-    row = df_f[df_f[fab_col] == sel_f].iloc[0]
-    st.dataframe(pd.DataFrame([row]))
-
-    r = row
+if sel_f != "Select":
 
     row = df_f[df_f[fab_col] == sel_f].iloc[0]
+
     st.dataframe(pd.DataFrame([row]))
+
+    r=row
+
+    def pick(h):
+        c=get_col(df,h)
+        return r.get(c,"-") if c else "-"
+
+
+    a,b,c,d = st.columns(4)
+
+    with a:
+        st.markdown("### 👤 Customer Info")
+        st.write("Customer:",pick("customer"))
+
+    with b:
+        st.markdown("### 🔧 Replacement Dates")
+
+    with c:
+        st.markdown("### ⏳ Remaining Hours")
+
+    with d:
+        st.markdown("### 📅 Due Dates")
+        
     # ================= MACHINE TRACKER PREMIUM CARD =================
 
 r = row

@@ -339,27 +339,6 @@ with b:
             f"{p}: {fmt_date(pick(p))}"
         )
 
-with c:
-    st.markdown("### ⏳ Remaining Hours")
-    for p in [
-        "AF Rem","OF Rem","OIL Rem",
-        "AOS Rem","VK Rem","RGT Rem"
-    ]:
-        st.write(
-            f"{p}: {pick(p)}"
-        )
-
-with d:
-    st.markdown("### 📅 Due Dates")
-    for p in [
-        "AF DUE DATE","OF DUE DATE",
-        "OIL DUE DATE","AOS DUE DATE",
-        "VALVEKIT DUE DATE","RGT DUE DATE",
-        "PF DUE DATE","FF DUE DATE","CF DUE DATE"
-    ]:
-        st.write(
-            f"{p}: {fmt_date(pick(p))}"
-        )
 
     # ================= PARTS =================
     st.subheader("🔧 Parts Full Details")

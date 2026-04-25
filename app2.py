@@ -182,7 +182,90 @@ if overdue_col:
                 overdue_df[fab_col].astype(str)==sel_machine
     ]
 
-    st.dataframe(row)
+   # ================= PREMIUM MACHINE CARD =================
+
+def fmt_date(v):
+    try:
+        d = pd.to_datetime(v, errors="coerce")
+        if pd.isna(d):
+            return "-"
+        return d.strftime("%d-%b-%y")
+    except:
+        return "-"
+
+r = row.iloc[0]
+
+# helper
+def pick(col_hint):
+    c = get_col(df, col_hint)
+    return r.get(c,"-") if c else "-"
+
+
+# -------- COLUMN GROUPS --------
+
+customer_items = [
+    ("Customer", pick("customer")),
+    ("Model", pick("model")),
+    ("Location", pick("location")),
+]
+
+replacement_items = [
+    ("AF", fmt_date(pick("AF R Date"))),
+    ("OF", fmt_date(pick("OF R Date"))),
+    ("OIL", fmt_date(pick("Oil R Date"))),
+    ("AOS", fmt_date(pick("AOS R Date"))),
+    ("RGT", fmt_date(pick("RGT R Date"))),
+    ("Valve", fmt_date(pick("Valvekit R Date"))),
+    ("PF", fmt_date(pick("PF R DATE"))),
+    ("FF", fmt_date(pick("FF R DATE"))),
+    ("CF", fmt_date(pick("CF R DATE"))),
+]
+
+hours_items = [
+    ("AF", pick("AF Rem")),
+    ("OF", pick("OF Rem")),
+    ("OIL", pick("OIL Rem")),
+    ("AOS", pick("AOS Rem")),
+    ("VK", pick("VK Rem")),
+    ("RGT", pick("RGT Rem")),
+]
+
+due_items = [
+    ("AF", fmt_date(pick("AF DUE DATE"))),
+    ("OF", fmt_date(pick("OF DUE DATE"))),
+    ("OIL", fmt_date(pick("OIL DUE DATE"))),
+    ("AOS", fmt_date(pick("AOS DUE DATE"))),
+    ("VK", fmt_date(pick("VALVEKIT DUE DATE"))),
+    ("RGT", fmt_date(pick("RGT DUE DATE"))),
+    ("PF", fmt_date(pick("PF DUE DATE"))),
+    ("FF", fmt_date(pick("FF DUE DATE"))),
+    ("CF", fmt_date(pick("CF DUE DATE"))),
+]
+
+
+# -------- DISPLAY --------
+
+c1,c2,c3,c4 = st.columns(4)
+
+with c1:
+    st.markdown("### 👤 Customer Info")
+    for k,v in customer_items:
+        st.write(f"**{k}:** {v}")
+
+with c2:
+    st.markdown("### 🔧 Replacement Dates")
+    for k,v in replacement_items:
+        st.write(f"{k}: {v}")
+
+with c3:
+    st.markdown("### ⏳ Remaining Hours")
+    for k,v in hours_items:
+        st.write(f"{k}: {v}")
+
+with c4:
+    st.markdown("### 📅 Due Dates")
+    for k,v in due_items:
+        st.write(f"{k}: {v}")
 
     curr_col = get_col(df,"current month due")
     next_col = get_col(df,"next month due")

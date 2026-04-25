@@ -286,11 +286,7 @@ with c4:
     else:
         st.info("⚪ NORMAL")
 
-else:
-    st.warning("Over Due column not found")
 
-
-            
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 

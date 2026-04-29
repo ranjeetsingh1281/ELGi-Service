@@ -46,6 +46,8 @@ df_f = df if sel == "All" else df[df[cust_col] == sel]
 
 # ================= DASHBOARD =================
 st.title("🏭 Industrial Dashboard")
+if st.button("🔄 Refresh Data"):
+    st.rerun()
 # ================= KPI COUNTS (MASTER आधारित) =================
 
 overdue_col = get_col(df,"over due")
@@ -67,6 +69,16 @@ def count_flag(series):
 overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
 current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
 next_month_count = count_flag(df_f[next_col]) if next_col else 0
+#============== Alert Banner (top warning) =================#
+if overdue_count > 0:
+
+    st.error(
+      f"⚠ {overdue_count} Overdue Units Need Attention"
+    )
+else:
+    st.success(
+      "✔ No overdue units"
+    )
 
 # ================= DISPLAY =================
 col1, col2, col3, col4 = st.columns(4)
@@ -291,7 +303,34 @@ with c4:
     else:
         st.info("⚪ NORMAL")
 
+#================ Smart Search (top search box)=================#
 
+st.subheader("🔎 Smart Search")
+
+search = st.text_input(
+    "Search by Fabrication / Customer / Model"
+)
+
+if search:
+
+    result = df_f[
+        df_f.astype(str)
+        .apply(
+            lambda x: x.str.contains(
+                search,
+                case=False,
+                na=False
+            )
+        ).any(axis=1)
+    ]
+
+    if not result.empty:
+        st.write("Search Results")
+        st.dataframe(result.head(20))
+
+    else:
+        st.warning("No matching record found")
+        
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 
@@ -305,6 +344,14 @@ sel_f = st.selectbox(
 
 if sel_f != "Select":
 
+    report_row = pd.DataFrame([row])
+
+st.download_button(
+    "⬇ Download Machine Report",
+    report_row.to_csv(index=False),
+    file_name=f"{sel_f}_Machine_Report.csv",
+    mime="text/csv"
+)
     row = df_f[df_f[fab_col] == sel_f].iloc[0]
 
     st.dataframe(pd.DataFrame([row]))

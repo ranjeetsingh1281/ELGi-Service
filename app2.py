@@ -333,9 +333,9 @@ a,b,c,d = st.columns(4)
 
 with a:
     st.markdown("### 👤 Customer Info")
-    st.write("Customer:", pick("customer"))
-    st.write("Model:", pick("model"))
-    st.write("Location:", pick("location"))
+    st.write(f"Customer: {row[cust_col]}")
+    st.write(f"Model: {row[model_col]}")
+    st.write(f"Location: {row[loc_col]}")
 
 
 with b:

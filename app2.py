@@ -270,9 +270,9 @@ with c4:
     curr_col = get_col(df,"current month due")
     next_col = get_col(df,"next month due")
 
-    ov = str(row[overdue_col].iloc[0]).strip()
-    cm = str(row[curr_col].iloc[0]).strip() if curr_col else "0"
-    nm = str(row[next_col].iloc[0]).strip() if next_col else "0"
+    ov = str(r[overdue_col].iloc[0]).strip()
+    cm = str(r[curr_col].iloc[0]).strip() if curr_col else "0"
+    nm = str(r[next_col].iloc[0]).strip() if next_col else "0"
 
     if ov in ["1","1.0"]:
         st.error("🔴 PRIORITY RED : OVERDUE")
@@ -328,14 +328,14 @@ def pick(h):
     c = get_col(df,h)
     return r.get(c,"-") if c else "-"
 
-
+r = row.iloc[0]
 a,b,c,d = st.columns(4)
 
 with a:
     st.markdown("### 👤 Customer Info")
-    st.write(f"Customer: {row[cust_col]}")
-    st.write(f"Model: {row[model_col]}")
-    st.write(f"Location: {row[loc_col]}")
+    st.write(f"Customer: {r[cust_col]}")
+    st.write(f"Model: {r[model_col]}")
+    st.write(f"Location: {r[loc_col]}")
 
 
 with b:

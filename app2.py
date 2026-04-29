@@ -344,9 +344,8 @@ sel_f = st.selectbox(
 
 if sel_f != "Select":
 
-    # selected row
     row = df_f[
-        df_f[fab_col].astype(str) == str(sel_f)
+        df_f[fab_col].astype(str)==str(sel_f)
     ].iloc[0]
 
     # export button (INDENTED inside IF)
@@ -362,15 +361,16 @@ if sel_f != "Select":
     # show raw record
     st.dataframe(pd.DataFrame([row]))
 
-    r = row
+        r = row
 
-    def pick(h):
+        def pick(h):
         c = get_col(df,h)
         return r.get(c,"-") if c else "-"
+
         
     # ================= MACHINE TRACKER PREMIUM CARD =================
 
-a,b,c,d = st.columns(4)
+  a,b,c,d = st.columns(4)
 
     with a:
         st.markdown("### 👤 Customer Info")

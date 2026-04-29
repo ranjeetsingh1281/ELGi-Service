@@ -192,6 +192,10 @@ def fmt_date(v):
         return d.strftime("%d-%b-%y")
     except:
         return "-"
+        
+cust_col  = get_col(df, "Customer Name")
+model_col = get_col(df, "Model")
+loc_col   = get_col(df, "Location")
 
 r = row.iloc[0]
 
@@ -333,9 +337,15 @@ a,b,c,d = st.columns(4)
 
 with a:
     st.markdown("### 👤 Customer Info")
-    st.write(f"Customer: {r[cust_col]}")
-    st.write(f"Model: {r[model_col]}")
-    st.write(f"Location: {r[loc_col]}")
+
+    if cust_col:
+        st.write(f"Customer: {r[cust_col]}")
+
+    if model_col:
+        st.write(f"Model: {r[model_col]}")
+
+    if loc_col:
+        st.write(f"Location: {r[loc_col]}")
 
 
 with b:

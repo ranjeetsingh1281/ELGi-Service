@@ -270,9 +270,9 @@ with c4:
     curr_col = get_col(df,"current month due")
     next_col = get_col(df,"next month due")
 
-    ov = str(r[overdue_col].iloc[0]).strip()
-    cm = str(r[curr_col].iloc[0]).strip() if curr_col else "0"
-    nm = str(r[next_col].iloc[0]).strip() if next_col else "0"
+    ov = str(r[overdue_col]).strip()
+    cm = str(r[curr_col]).strip() if curr_col else "0"
+    nm = str(r[next_col]).strip() if next_col else "0"
 
     if ov in ["1","1.0"]:
         st.error("🔴 PRIORITY RED : OVERDUE")

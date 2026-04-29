@@ -162,7 +162,12 @@ if overdue_col:
         st.success(
             f"{len(overdue_df)} Overdue Units Found"
         )
-
+        st.download_button(
+            label="⬇ Download Overdue List",
+            data=overdue_df.to_csv(index=False),
+            file_name="Overdue_Units.csv",
+            mime="text/csv"
+        )
         fab_col = get_col(df,"fabrication")
 
         machines = (
@@ -253,25 +258,20 @@ due_items = [
 c1,c2,c3,c4 = st.columns(4)
 
 with c1:
-    st.markdown("### 👤 Customer Info")
-    for k,v in customer_items:
-        st.write(f"**{k}:** {v}")
+    st.metric("Total Units", len(df))
 
 with c2:
-    st.markdown("### 🔧 Replacement Dates")
-    for k,v in replacement_items:
-        st.write(f"{k}: {v}")
+    if overdue_count > 0:
+        st.error(f"🔴 Overdue\n{overdue_count}")
+    else:
+        st.success("No Overdue")
 
 with c3:
-    st.markdown("### ⏳ Remaining Hours")
-    for k,v in hours_items:
-        st.write(f"{k}: {v}")
+    st.warning(f"🟠 Current Month\n{current_month_count}")
 
 with c4:
-    st.markdown("### 📅 Due Dates")
-    for k,v in due_items:
-        st.write(f"{k}: {v}")
-
+    st.success(f"🟢 Next Month\n{next_month_count}")
+    
     curr_col = get_col(df,"current month due")
     next_col = get_col(df,"next month due")
 
@@ -364,11 +364,30 @@ with b:
 with c:
     st.markdown("### ⏳ Remaining Hours")
 
-    for p in [
-        "AF Rem","OF Rem","OIL Rem",
-        "AOS Rem","VK Rem","RGT Rem"
-    ]:
-        st.write(f"{p}: {pick(p)}")
+   for p in [
+        "AF Rem. HMR Till date",
+        "OF Rem. HMR Till date",
+        "OIL Rem. HMR Till date",
+        "AOS Rem. HMR Till date",
+        "VK Rem. HMR Till date",
+        "RGT Rem. HMR Till date"
+]:
+    v=pick(p)
+
+    try:
+        hrs=float(v)
+
+        if hrs < 0:
+            st.error(f"{p}: {hrs}")
+
+        elif hrs < 500:
+            st.warning(f"{p}: {hrs}")
+
+        else:
+            st.success(f"{p}: {hrs}")
+
+    except:
+        st.write(f"{p}: -")
 
 
 with d:
@@ -379,9 +398,47 @@ with d:
         "AOS DUE DATE","VALVEKIT DUE DATE",
         "RGT DUE DATE","PF DUE DATE",
         "FF DUE DATE","CF DUE DATE"
-    ]:
-        st.write(f"{p}: {fmt_date(pick(p))}")
+]:
 
+    due_raw = pick(p)
+
+    try:
+        d = pd.to_datetime(due_raw)
+
+        if d < pd.Timestamp.today():
+            st.error(f"{p}: {fmt_date(d)}")
+
+        elif d <= pd.Timestamp.today()+pd.Timedelta(days=30):
+            st.warning(f"{p}: {fmt_date(d)}")
+
+        else:
+            st.success(f"{p}: {fmt_date(d)}")
+
+    except:
+        st.write(f"{p}: -")
+
+    #==============Service Trend Chart==============#
+call_date_col=get_col(service_df,"Call Logged Date")
+
+if call_date_col:
+
+    svc=service_df.copy()
+
+    svc[call_date_col]=pd.to_datetime(
+        svc[call_date_col],
+        errors="coerce"
+    )
+
+    svc["Month"]=svc[call_date_col].dt.strftime("%b-%y")
+
+    trend=svc.groupby("Month").size()
+
+    if len(trend)>0:
+
+        st.subheader("📈 Service Trend")
+
+        st.line_chart(trend)
+        
 # ================= PIE CHART =================
 st.subheader("📊 Unit Status Chart")
 

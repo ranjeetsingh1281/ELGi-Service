@@ -359,24 +359,24 @@ if sel_f != "Select":
     )
 
     # show raw record
+    # show raw record
     st.dataframe(pd.DataFrame([row]))
 
-        r = row
+    r = row
 
-        def pick(h):
+    def pick(h):
         c = get_col(df,h)
         return r.get(c,"-") if c else "-"
 
-        
-    # ================= MACHINE TRACKER PREMIUM CARD =================
 
-  a,b,c,d = st.columns(4)
+    a,b,c,d = st.columns(4)
 
     with a:
         st.markdown("### 👤 Customer Info")
         st.write(f"Customer: {pick('customer')}")
         st.write(f"Model: {pick('model')}")
         st.write(f"Location: {pick('location')}")
+
 
     with b:
         st.markdown("### 🔧 Replacement Dates")
@@ -417,8 +417,6 @@ if sel_f != "Select":
 
             except:
                 st.write(f"{p}: -")
-
-
     with d:
         st.markdown("### 📅 Due Dates")
 

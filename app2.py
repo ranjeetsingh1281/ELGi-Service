@@ -310,21 +310,6 @@ if sel_f != "Select":
         c=get_col(df,h)
         return r.get(c,"-") if c else "-"
 
-
-    a,b,c,d = st.columns(4)
-
-    with a:
-        st.markdown("### 👤 Customer Info")
-        st.write("Customer:",pick("customer"))
-
-    with b:
-        st.markdown("### 🔧 Replacement Dates")
-
-    with c:
-        st.markdown("### ⏳ Remaining Hours")
-
-    with d:
-        st.markdown("### 📅 Due Dates")
         
     # ================= MACHINE TRACKER PREMIUM CARD =================
 

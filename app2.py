@@ -334,7 +334,7 @@ if search:
 # ================= MACHINE TRACKER =================
 st.subheader("🔍 Machine Tracker")
 
-machines = ["Select"] + list(df_f[fab_col].unique())
+machines = ["Select"] + list(df_f[fab_col].astype(str).unique())
 
 sel_f = st.selectbox(
     "Select Machine",
@@ -344,126 +344,104 @@ sel_f = st.selectbox(
 
 if sel_f != "Select":
 
+    # selected row
+    row = df_f[
+        df_f[fab_col].astype(str) == str(sel_f)
+    ].iloc[0]
+
+    # export button (INDENTED inside IF)
     report_row = pd.DataFrame([row])
 
-st.download_button(
-    "⬇ Download Machine Report",
-    report_row.to_csv(index=False),
-    file_name=f"{sel_f}_Machine_Report.csv",
-    mime="text/csv"
-)
-    row = df_f[df_f[fab_col] == sel_f].iloc[0]
+    st.download_button(
+        "⬇ Download Machine Report",
+        report_row.to_csv(index=False),
+        file_name=f"{sel_f}_Machine_Report.csv",
+        mime="text/csv"
+    )
 
+    # show raw record
     st.dataframe(pd.DataFrame([row]))
 
-    r=row
+    r = row
 
     def pick(h):
-        c=get_col(df,h)
+        c = get_col(df,h)
         return r.get(c,"-") if c else "-"
-
         
     # ================= MACHINE TRACKER PREMIUM CARD =================
 
-r = row
+ a,b,c,d = st.columns(4)
 
-def fmt_date(v):
-    try:
-        d = pd.to_datetime(v, errors="coerce")
-        if pd.isna(d):
-            return "-"
-        return d.strftime("%d-%b-%y")
-    except:
-        return "-"
+    with a:
+        st.markdown("### 👤 Customer Info")
+        st.write(f"Customer: {pick('customer')}")
+        st.write(f"Model: {pick('model')}")
+        st.write(f"Location: {pick('location')}")
 
-def pick(h):
-    c = get_col(df,h)
-    return r.get(c,"-") if c else "-"
+    with b:
+        st.markdown("### 🔧 Replacement Dates")
 
-r = row.iloc[0]
-a,b,c,d = st.columns(4)
-
-with a:
-    st.markdown("### 👤 Customer Info")
-
-    if cust_col:
-        st.write(f"Customer: {r[cust_col]}")
-
-    if model_col:
-        st.write(f"Model: {r[model_col]}")
-
-    if loc_col:
-        st.write(f"Location: {r[loc_col]}")
+        for p in [
+            "AF R Date","OF R Date","Oil R Date",
+            "AOS R Date","RGT R Date",
+            "Valvekit R Date",
+            "PF R DATE","FF R DATE","CF R DATE"
+        ]:
+            st.write(f"{p}: {fmt_date(pick(p))}")
 
 
-with b:
-    st.markdown("### 🔧 Replacement Dates")
+    with c:
+        st.markdown("### ⏳ Remaining Hours")
 
-    for p in [
-        "AF R Date","OF R Date","Oil R Date",
-        "AOS R Date","RGT R Date",
-        "Valvekit R Date",
-        "PF R DATE","FF R DATE","CF R DATE"
-    ]:
-        st.write(f"{p}: {fmt_date(pick(p))}")
+        for p in [
+            "AF Rem. HMR Till date",
+            "OF Rem. HMR Till date",
+            "OIL Rem. HMR Till date",
+            "AOS Rem. HMR Till date",
+            "VK Rem. HMR Till date",
+            "RGT Rem. HMR Till date"
+        ]:
+            v = pick(p)
 
+            try:
+                hrs = float(v)
 
-with c:
-    st.markdown("### ⏳ Remaining Hours")
+                if hrs < 0:
+                    st.error(f"{p}: {hrs}")
 
-    for p in [
-        "AF Rem. HMR Till date",
-        "OF Rem. HMR Till date",
-        "OIL Rem. HMR Till date",
-        "AOS Rem. HMR Till date",
-        "VK Rem. HMR Till date",
-        "RGT Rem. HMR Till date"
-    ]:
+                elif hrs < 500:
+                    st.warning(f"{p}: {hrs}")
 
-        v = pick(p)
+                else:
+                    st.success(f"{p}: {hrs}")
 
-        try:
-            hrs = float(v)
-
-            if hrs < 0:
-                st.error(f"{p}: {hrs}")
-
-            elif hrs < 500:
-                st.warning(f"{p}: {hrs}")
-
-            else:
-                st.success(f"{p}: {hrs}")
-
-        except:
-            st.write(f"{p}: -")
+            except:
+                st.write(f"{p}: -")
 
 
-with d:
-    st.markdown("### 📅 Due Dates")
+    with d:
+        st.markdown("### 📅 Due Dates")
 
-    for p in [
-        "AF DUE DATE","OF DUE DATE","OIL DUE DATE",
-        "AOS DUE DATE","VALVEKIT DUE DATE",
-        "RGT DUE DATE","PF DUE DATE",
-        "FF DUE DATE","CF DUE DATE"
-    ]:
+        for p in [
+            "AF DUE DATE","OF DUE DATE","OIL DUE DATE",
+            "AOS DUE DATE","VALVEKIT DUE DATE",
+            "RGT DUE DATE","PF DUE DATE",
+            "FF DUE DATE","CF DUE DATE"
+        ]:
+            try:
+                due_dt = pd.to_datetime(pick(p))
 
-        due_raw = pick(p)
+                if due_dt < pd.Timestamp.today():
+                    st.error(f"{p}: {fmt_date(due_dt)}")
 
-        try:
-            due_dt = pd.to_datetime(due_raw)
+                elif due_dt <= pd.Timestamp.today()+pd.Timedelta(days=30):
+                    st.warning(f"{p}: {fmt_date(due_dt)}")
 
-            if due_dt < pd.Timestamp.today():
-                st.error(f"{p}: {fmt_date(due_dt)}")
+                else:
+                    st.success(f"{p}: {fmt_date(due_dt)}")
 
-            elif due_dt <= pd.Timestamp.today()+pd.Timedelta(days=30):
-                st.warning(f"{p}: {fmt_date(due_dt)}")
-
-            else:
-                st.success(f"{p}: {fmt_date(due_dt)}")
-
-        except:
-            st.write(f"{p}: -")
+            except:
+                st.write(f"{p}: -")
 
     #==============Service Trend Chart==============#
 call_date_col=get_col(service,"Call Logged Date")

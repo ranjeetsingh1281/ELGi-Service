@@ -364,30 +364,31 @@ with b:
 with c:
     st.markdown("### ⏳ Remaining Hours")
 
-   for p in [
+    for p in [
         "AF Rem. HMR Till date",
         "OF Rem. HMR Till date",
         "OIL Rem. HMR Till date",
         "AOS Rem. HMR Till date",
         "VK Rem. HMR Till date",
         "RGT Rem. HMR Till date"
-]:
-    v=pick(p)
+    ]:
 
-    try:
-        hrs=float(v)
+        v = pick(p)
 
-        if hrs < 0:
-            st.error(f"{p}: {hrs}")
+        try:
+            hrs = float(v)
 
-        elif hrs < 500:
-            st.warning(f"{p}: {hrs}")
+            if hrs < 0:
+                st.error(f"{p}: {hrs}")
 
-        else:
-            st.success(f"{p}: {hrs}")
+            elif hrs < 500:
+                st.warning(f"{p}: {hrs}")
 
-    except:
-        st.write(f"{p}: -")
+            else:
+                st.success(f"{p}: {hrs}")
+
+        except:
+            st.write(f"{p}: -")
 
 
 with d:
@@ -398,31 +399,31 @@ with d:
         "AOS DUE DATE","VALVEKIT DUE DATE",
         "RGT DUE DATE","PF DUE DATE",
         "FF DUE DATE","CF DUE DATE"
-]:
+    ]:
 
-    due_raw = pick(p)
+        due_raw = pick(p)
 
-    try:
-        d = pd.to_datetime(due_raw)
+        try:
+            due_dt = pd.to_datetime(due_raw)
 
-        if d < pd.Timestamp.today():
-            st.error(f"{p}: {fmt_date(d)}")
+            if due_dt < pd.Timestamp.today():
+                st.error(f"{p}: {fmt_date(due_dt)}")
 
-        elif d <= pd.Timestamp.today()+pd.Timedelta(days=30):
-            st.warning(f"{p}: {fmt_date(d)}")
+            elif due_dt <= pd.Timestamp.today()+pd.Timedelta(days=30):
+                st.warning(f"{p}: {fmt_date(due_dt)}")
 
-        else:
-            st.success(f"{p}: {fmt_date(d)}")
+            else:
+                st.success(f"{p}: {fmt_date(due_dt)}")
 
-    except:
-        st.write(f"{p}: -")
+        except:
+            st.write(f"{p}: -")
 
     #==============Service Trend Chart==============#
-call_date_col=get_col(service_df,"Call Logged Date")
+call_date_col=get_col(service,"Call Logged Date")
 
 if call_date_col:
 
-    svc=service_df.copy()
+    svc=service.copy()
 
     svc[call_date_col]=pd.to_datetime(
         svc[call_date_col],

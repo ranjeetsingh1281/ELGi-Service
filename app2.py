@@ -370,7 +370,7 @@ if sel_f != "Select":
         
     # ================= MACHINE TRACKER PREMIUM CARD =================
 
- a,b,c,d = st.columns(4)
+a,b,c,d = st.columns(4)
 
     with a:
         st.markdown("### 👤 Customer Info")

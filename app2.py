@@ -438,8 +438,6 @@ if not svc_df.empty:
 else:
     st.info("No Service History Found")
 
-sel_f = st.selectbox(...)
-
 if sel_f != "Select":
 
     row = df_f[

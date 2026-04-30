@@ -22,7 +22,71 @@ except:
 df.columns = df.columns.str.strip()
 foc.columns = foc.columns.str.strip()
 service.columns = service.columns.str.strip()
+#=================Premium GlassCSS==============#
 
+st.markdown("""
+<style>
+
+/* ---------- GLOBAL DARK MODE ---------- */
+html, body, [class*="css"]  {
+    background-color: #0f172a;
+    color: #e2e8f0;
+}
+
+/* ---------- SIDEBAR ---------- */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617, #0f172a);
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ---------- GLASS CARD ---------- */
+.glass-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: 0.3s ease;
+}
+
+/* Hover effect 🔥 */
+.glass-card:hover {
+    transform: translateY(-5px) scale(1.01);
+    box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
+}
+
+/* ---------- KPI CARDS ---------- */
+.kpi {
+    text-align: center;
+    padding: 15px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    transition: 0.3s;
+}
+
+.kpi:hover {
+    transform: scale(1.05);
+}
+
+/* ---------- BUTTON ---------- */
+.stButton>button {
+    border-radius: 10px;
+    background: linear-gradient(90deg, #2563eb, #06b6d4);
+    color: white;
+    border: none;
+}
+
+/* ---------- SCROLLBAR ---------- */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 10px;
+}
+
+</style>
+""", unsafe_allow_html=True)
 # ================= DATE FORMAT =================
 def fmt_date(val):
     try:

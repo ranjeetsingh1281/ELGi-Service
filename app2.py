@@ -362,7 +362,15 @@ cust_col  = get_col(df, "Customer Name")
 model_col = get_col(df, "Model")
 loc_col   = get_col(df, "Location")
 
-r = row.iloc[0]
+filtered = overdue_df[
+    overdue_df[fab_col].astype(str) == str(sel_machine)
+]
+
+if not filtered.empty:
+    r = filtered.iloc[0]
+else:
+    st.warning("No machine data found")
+    st.stop()
 
 # helper
 def pick(col_hint):

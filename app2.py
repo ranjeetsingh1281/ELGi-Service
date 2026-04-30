@@ -129,25 +129,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ================= KPI COUNTS (MASTER आधारित) =================
 
-overdue_col = get_col(df,"over due")
-curr_col   = get_col(df,"current month due")
-next_col   = get_col(df,"next month due")
+col1, col2, col3, col4 = st.columns(4)
 
-def count_flag(series):
-    
-    s = series.astype(str).str.strip().str.lower()
+def kpi(title, value, icon):
+    st.markdown(f"""
+    <div class="kpi glass-card">
+        <h4>{icon} {title}</h4>
+        <h2>{value}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-    return s.isin([
-        "1",
-        "1.0",
-        "yes",
-        "y",
-        "true"
-    ]).sum()
+with col1:
+    kpi("Total Units", len(df_f), "📦")
 
-overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
-current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
-next_month_count = count_flag(df_f[next_col]) if next_col else 0
+with col2:
+    kpi("Overdue", overdue_count, "🔴")
+
+with col3:
+    kpi("Current Month", current_month_count, "🟠")
+
+with col4:
+    kpi("Next Month", next_month_count, "🟢")
 #============== Alert Banner (top warning) =================#
 if overdue_count > 0:
 

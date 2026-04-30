@@ -131,35 +131,41 @@ if w_end_col:
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Status Summary")
 
-# 🔥 DIRECT COLUMN NAME (CHANGE IF NEEDED)
-amc_status_col = "AMC Status"
+choice = st.sidebar.radio(
+    "Select AMC Category",
+    ["None","AMC","Expired","Not in AMC","Blank"]
+)
 
-if amc_status_col in df.columns:
+# counts display
+if "AMC Clean" in df.columns:
+    counts = df["AMC Clean"].value_counts()
+    st.sidebar.write(counts)
 
-    df[amc_status_col] = df[amc_status_col].astype(str).str.strip().str.lower()
+# 👉 MAIN DISPLAY (with download)
+if choice != "None":
 
-    def map_status(x):
-        if "expire" in x:
-            return "Expired"
-        elif "not" in x:
-            return "Not in AMC"
-        elif "amc" in x:
-            return "AMC"
-        elif x == "" or x == "nan":
-            return "Blank"
-        else:
-            return "Blank"
+    st.subheader(f"📋 {choice} Details")
 
-    df["AMC Clean"] = df[amc_status_col].apply(map_status)
+    filtered_df = df[df["AMC Clean"] == choice]
 
-    order = ["AMC", "Expired", "Not in AMC", "Blank"]
+    if not filtered_df.empty:
 
-    amc_counts = df["AMC Clean"].value_counts().reindex(order, fill_value=0)
+        st.success(f"{len(filtered_df)} Records Found")
 
-    st.sidebar.write(amc_counts)
+        st.dataframe(filtered_df, use_container_width=True)
 
-else:
-    st.sidebar.error("AMC Status column not found ❌")
+        # 🔥 DOWNLOAD BUTTON
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="⬇ Download AMC Data",
+            data=csv,
+            file_name=f"{choice}_AMC_Data.csv",
+            mime="text/csv"
+        )
+
+    else:
+        st.warning("No data found")
 #==================AMC New Section====================#
 
 st.subheader("📆 AMC Insights")

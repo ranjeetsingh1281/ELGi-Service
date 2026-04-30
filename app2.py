@@ -129,7 +129,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ================= KPI COUNTS (MASTER आधारित) =================
 
-verdue_col = get_col(df,"over due")
+overdue_col = get_col(df,"over due")
 curr_col   = get_col(df,"current month due")
 next_col   = get_col(df,"next month due")
 
@@ -339,7 +339,7 @@ if overdue_col:
 
             row = overdue_df[
                 overdue_df[fab_col].astype(str)==sel_machine
-    ]
+    ].iloc[0]
 
    # ================= PREMIUM MACHINE CARD =================
 

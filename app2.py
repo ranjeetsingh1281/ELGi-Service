@@ -128,6 +128,31 @@ if w_end_col:
         # 👉 Month name convert (premium look)
         monthly.index = monthly.index.map(lambda x: pd.to_datetime(str(x), format="%m").strftime("%b"))
         st.sidebar.write(monthly)
+
+# ================= AMC CLEAN FIX =================
+amc_status_col = "AMC Status"
+
+if amc_status_col in df.columns:
+
+    df[amc_status_col] = df[amc_status_col].astype(str).str.strip().str.lower()
+
+    def map_status(x):
+        if "expire" in x:
+            return "Expired"
+        elif "not" in x:
+            return "Not in AMC"
+        elif "amc" in x:
+            return "AMC"
+        elif x == "" or x == "nan":
+            return "Blank"
+        else:
+            return "Blank"
+
+    df["AMC Clean"] = df[amc_status_col].apply(map_status)
+
+else:
+    df["AMC Clean"] = "Blank"   # fallback (important)
+    
 # ================= AMC =================
 st.sidebar.subheader("📆 AMC Status Summary")
 
@@ -136,12 +161,11 @@ choice = st.sidebar.radio(
     ["None","AMC","Expired","Not in AMC","Blank"]
 )
 
-# counts display
-if "AMC Clean" in df.columns:
-    counts = df["AMC Clean"].value_counts()
-    st.sidebar.write(counts)
+# counts
+counts = df["AMC Clean"].value_counts()
+st.sidebar.write(counts)
 
-# 👉 MAIN DISPLAY (with download)
+# 👉 MAIN DISPLAY
 if choice != "None":
 
     st.subheader(f"📋 {choice} Details")
@@ -154,7 +178,6 @@ if choice != "None":
 
         st.dataframe(filtered_df, use_container_width=True)
 
-        # 🔥 DOWNLOAD BUTTON
         csv = filtered_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(

@@ -153,7 +153,30 @@ if amc_status_col in df.columns:
 
 else:
     st.sidebar.error("AMC Status column not found ❌")
-    
+#==================AMC New Section====================#
+
+st.subheader("📆 AMC Insights")
+
+amc_date_col = get_col(amc_df, "amc end")
+
+amc_df[amc_date_col] = pd.to_datetime(amc_df[amc_date_col], errors="coerce")
+
+today = pd.Timestamp.today()
+
+active_amc = amc_df[amc_df[amc_date_col] > today]
+expired_amc = amc_df[amc_df[amc_date_col] < today]
+
+next_3_month = amc_df[
+    (amc_df[amc_date_col] >= today) &
+    (amc_df[amc_date_col] <= today + pd.Timedelta(days=90))
+]
+
+c1,c2,c3 = st.columns(3)
+
+c1.metric("Active AMC", len(active_amc))
+c2.metric("Expired AMC", len(expired_amc))
+c3.metric("Expiring in 3 Months", len(next_3_month))
+
 # ================= CLICKABLE OVERDUE =================
 
 if overdue_col:
@@ -341,6 +364,26 @@ sel_f = st.selectbox(
     machines,
     key="main_machine_tracker"
 )
+st.markdown("### 📜 Service History")
+
+fab_col_service = get_col(service, "fabrication")
+
+svc_df = service[
+    service[fab_col_service].astype(str) == str(sel_f)
+]
+
+if not svc_df.empty:
+
+    for i, r_s in svc_df.iterrows():
+
+        with st.expander(
+            f"📅 {fmt_date(r_s.get('Call Logged Date'))} | {r_s.get('Call Type','-')}"
+        ):
+            st.write(f"**Call HMR:** {r_s.get('Call HMR','-')}")
+            st.write(f"**Engineer Comment:** {r_s.get('Service Engineer Comment','-')}")
+
+else:
+    st.info("No Service History Found")
 
 if sel_f != "Select":
 
@@ -440,29 +483,64 @@ if sel_f != "Select":
 
             except:
                 st.write(f"{p}: -")
+#==========FOC Details==========#
+
+st.markdown("### 📦 FOC Details")
+
+fab_col_foc = get_col(foc, "fabrication")
+
+foc_df = foc[
+    foc[fab_col_foc].astype(str) == str(sel_f)
+]
+
+if not foc_df.empty:
+
+    st.dataframe(foc_df[[
+        "Created On",
+        "FOC Number",
+        "Work Order Number",
+        "Customer Name",
+        "FOC Type",
+        "Model",
+        "Fabrication Number",
+        "Failure Material Details",
+        "Part Code",
+        "ELGI Invoice No"
+    ]], use_container_width=True)
+
+else:
+    st.info("No FOC Data Found")
 
     #==============Service Trend Chart==============#
-call_date_col=get_col(service,"Call Logged Date")
+st.subheader("📈 Service Trend")
+
+call_date_col = get_col(service, "Call Logged Date")
 
 if call_date_col:
 
-    svc=service.copy()
+    svc = service.copy()
+    svc[call_date_col] = pd.to_datetime(svc[call_date_col], errors="coerce")
 
-    svc[call_date_col]=pd.to_datetime(
-        svc[call_date_col],
-        errors="coerce"
-    )
+    svc["Year"] = svc[call_date_col].dt.year
+    svc["Month"] = svc[call_date_col].dt.month
 
-    svc["Month"]=svc[call_date_col].dt.strftime("%b-%y")
+    years = sorted(svc["Year"].dropna().unique())
+    sel_year = st.selectbox("Select Year", years)
 
-    trend=svc.groupby("Month").size()
+    months = list(range(1,13))
+    sel_month = st.selectbox("Select Month", months)
 
-    if len(trend)>0:
+    svc_f = svc[
+        (svc["Year"] == sel_year) &
+        (svc["Month"] == sel_month)
+    ]
 
-        st.subheader("📈 Service Trend")
+    trend = svc_f.groupby(call_date_col).size()
 
+    if not trend.empty:
         st.line_chart(trend)
-        
+    else:
+        st.warning("No Data for selected filter")        
 # ================= PIE CHART =================
 st.subheader("📊 Unit Status Chart")
 

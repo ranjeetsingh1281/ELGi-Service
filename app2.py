@@ -55,6 +55,14 @@ df_f = df if sel == "All" else df[df[cust_col] == sel]
 st.title("🏭 Industrial Dashboard")
 if st.button("🔄 Refresh Data"):
     st.rerun()
+
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 1rem;
+}
+</style>
+""", unsafe_allow_html=True)
 # ================= KPI COUNTS (MASTER आधारित) =================
 
 overdue_col = get_col(df,"over due")
@@ -429,6 +437,8 @@ if not svc_df.empty:
 
 else:
     st.info("No Service History Found")
+
+sel_f = st.selectbox(...)
 
 if sel_f != "Select":
 

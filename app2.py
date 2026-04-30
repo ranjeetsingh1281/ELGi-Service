@@ -129,45 +129,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ================= KPI COUNTS (MASTER आधारित) =================
 
-st.markdown("""
-<style>
-.metric-card {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    text-align: center;
-    transition: 0.3s;
-}
-.metric-card:hover {
-    transform: translateY(-5px);
-}
-.metric-title {
-    font-size: 14px;
-    color: #6B7280;
-}
-.metric-value {
-    font-size: 32px;
-    font-weight: bold;
-    color: #111827;
-}
-</style>
-""", unsafe_allow_html=True)
+verdue_col = get_col(df,"over due")
+curr_col   = get_col(df,"current month due")
+next_col   = get_col(df,"next month due")
 
-c1, c2, c3, c4 = st.columns(4)
+def count_flag(series):
+    
+    s = series.astype(str).str.strip().str.lower()
 
-def card(col, title, value):
-    col.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">{title}</div>
-        <div class="metric-value">{value}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    return s.isin([
+        "1",
+        "1.0",
+        "yes",
+        "y",
+        "true"
+    ]).sum()
 
-card(c1, "Total Units", len(df_f))
-card(c2, "Overdue 🔴", overdue_count)
-card(c3, "Current Month 🟠", current_month_count)
-card(c4, "Next Month 🟢", next_month_count)
+overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
+current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
+next_month_count = count_flag(df_f[next_col]) if next_col else 0
 
 #============== Alert Banner (top warning) =================#
 if overdue_count > 0:

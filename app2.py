@@ -11,6 +11,13 @@ st.set_page_config(layout="wide")
 df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
 foc = pd.read_excel("Active_FOC.xlsx").fillna("")
 service = pd.read_excel("Service_Details.xlsx").fillna("")
+# ================= AMC LOAD =================
+try:
+    amc_df = pd.read_excel("AMC_Details.xlsx").fillna("")
+    amc_df.columns = amc_df.columns.str.strip()
+except:
+    amc_df = pd.DataFrame()
+    st.warning("AMC file not loaded")
 
 df.columns = df.columns.str.strip()
 foc.columns = foc.columns.str.strip()
@@ -157,26 +164,35 @@ else:
 
 st.subheader("📆 AMC Insights")
 
-amc_date_col = get_col(amc_df, "amc end")
+if not amc_df.empty:
 
-amc_df[amc_date_col] = pd.to_datetime(amc_df[amc_date_col], errors="coerce")
+    amc_date_col = get_col(amc_df, "amc end")
 
-today = pd.Timestamp.today()
+    if amc_date_col:
 
-active_amc = amc_df[amc_df[amc_date_col] > today]
-expired_amc = amc_df[amc_df[amc_date_col] < today]
+        amc_df[amc_date_col] = pd.to_datetime(amc_df[amc_date_col], errors="coerce")
 
-next_3_month = amc_df[
-    (amc_df[amc_date_col] >= today) &
-    (amc_df[amc_date_col] <= today + pd.Timedelta(days=90))
-]
+        today = pd.Timestamp.today()
 
-c1,c2,c3 = st.columns(3)
+        active_amc = amc_df[amc_df[amc_date_col] > today]
+        expired_amc = amc_df[amc_df[amc_date_col] < today]
 
-c1.metric("Active AMC", len(active_amc))
-c2.metric("Expired AMC", len(expired_amc))
-c3.metric("Expiring in 3 Months", len(next_3_month))
+        next_3_month = amc_df[
+            (amc_df[amc_date_col] >= today) &
+            (amc_df[amc_date_col] <= today + pd.Timedelta(days=90))
+        ]
 
+        c1,c2,c3 = st.columns(3)
+
+        c1.metric("Active AMC", len(active_amc))
+        c2.metric("Expired AMC", len(expired_amc))
+        c3.metric("Expiring in 3 Months", len(next_3_month))
+
+    else:
+        st.error("AMC End Date column not found ❌")
+
+else:
+    st.warning("AMC file empty or not loaded")
 # ================= CLICKABLE OVERDUE =================
 
 if overdue_col:

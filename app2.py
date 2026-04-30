@@ -337,9 +337,15 @@ if overdue_col:
 
         if sel_machine:
 
-            row = overdue_df[
-                overdue_df[fab_col].astype(str)==sel_machine
-    ].iloc[0]
+           filtered = overdue_df[
+    overdue_df[fab_col].astype(str)==sel_machine
+]
+
+if not filtered.empty:
+    r = filtered.iloc[0]
+else:
+    st.warning("No data found")
+    st.stop()
 
    # ================= PREMIUM MACHINE CARD =================
 
@@ -361,7 +367,9 @@ r = row.iloc[0]
 # helper
 def pick(col_hint):
     c = get_col(df, col_hint)
-    return r.get(c,"-") if c else "-"
+    if c and c in r:
+        return r[c]
+    return "-"
 
 
 # -------- COLUMN GROUPS --------

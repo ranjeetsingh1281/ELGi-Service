@@ -129,27 +129,46 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ================= KPI COUNTS (MASTER आधारित) =================
 
-col1, col2, col3, col4 = st.columns(4)
+st.markdown("""
+<style>
+.metric-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    text-align: center;
+    transition: 0.3s;
+}
+.metric-card:hover {
+    transform: translateY(-5px);
+}
+.metric-title {
+    font-size: 14px;
+    color: #6B7280;
+}
+.metric-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #111827;
+}
+</style>
+""", unsafe_allow_html=True)
 
-def kpi(title, value, icon):
-    st.markdown(f"""
-    <div class="kpi glass-card">
-        <h4>{icon} {title}</h4>
-        <h2>{value}</h2>
+c1, c2, c3, c4 = st.columns(4)
+
+def card(col, title, value):
+    col.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">{title}</div>
+        <div class="metric-value">{value}</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col1:
-    kpi("Total Units", len(df_f), "📦")
+card(c1, "Total Units", len(df_f))
+card(c2, "Overdue 🔴", overdue_count)
+card(c3, "Current Month 🟠", current_month_count)
+card(c4, "Next Month 🟢", next_month_count)
 
-with col2:
-    kpi("Overdue", overdue_count, "🔴")
-
-with col3:
-    kpi("Current Month", current_month_count, "🟠")
-
-with col4:
-    kpi("Next Month", next_month_count, "🟢")
 #============== Alert Banner (top warning) =================#
 if overdue_count > 0:
 

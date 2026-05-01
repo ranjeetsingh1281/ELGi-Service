@@ -27,7 +27,7 @@ st.sidebar.title("CRM Filters")
 customer_col = "CUSTOMER NAME" if "CUSTOMER NAME" in master.columns else master.columns[0]
 machine_col = "FABRICATION NO." if "FABRICATION NO." in master.columns else master.columns[1]
 
-# 2) Sidebar Category Filter
+# Sidebar Category Filter
 if "Category" in master.columns:
     cat_list = ["All"] + sorted(master["Category"].dropna().unique().tolist())
     selected_category = st.sidebar.selectbox("Select Category", cat_list)
@@ -37,20 +37,17 @@ if "Category" in master.columns:
 selected_customer = st.sidebar.selectbox("Select Customer", ["All"] + sorted(master[customer_col].dropna().unique().tolist()))
 
 # Machine selection logic
-machine_list = ["All"]
 filtered_master = master.copy()
 if selected_customer != "All":
     filtered_master = master[master[customer_col] == selected_customer]
-    machine_list += sorted(filtered_master[machine_col].dropna().unique().tolist())
-else:
-    machine_list += sorted(master[machine_col].dropna().unique().tolist())
 
+machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
 selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
 
 # --- DASHBOARD START ---
 st.title("📇 PRIME POWER CRM App")
 
-# 1) Metrics Section (Fixed 'coll' to 'col1')
+# 1) Metrics Section
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Customers", filtered_master[customer_col].nunique())
 col2.metric("Total Machines", filtered_master[machine_col].nunique())
@@ -65,7 +62,7 @@ else:
 
 st.markdown("---")
 
-# 3) 4-Column Machine Tracker
+# 2) 4-Column Machine Tracker (When Machine Selected)
 if selected_machine != "All":
     m_data = master[master[machine_col].astype(str) == str(selected_machine)].iloc[0]
     st.subheader(f"🔍 Detailed Tracker: {selected_machine}")
@@ -95,10 +92,48 @@ if selected_machine != "All":
         cols4 = ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]
         for col in cols4:
             st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
-else:
-    st.info("Sidebar se machine select karein.")
 
-# Service Comments Section
-st.markdown("---")
-st.subheader("🛠️ Recent Service Requests")
-# ... (Baaki Service aur FOC ka logic yahan rahega)
+    st.markdown("---")
+
+    # 3) Recent Service Requests (Specific to Selected Machine)
+    st.subheader("🛠️ Recent Service Requests")
+    # Finding fabrication column in service sheet
+    svc_fab_col = next((c for c in service.columns if "fabrication" in c.lower()), None)
+    
+    if svc_fab_col:
+        svc_filtered = service[service[svc_fab_col].astype(str) == str(selected_machine)].copy()
+        if not svc_filtered.empty:
+            comment_col = "Service Engineer Comments"
+            if "Call Logged Date" in svc_filtered.columns:
+                svc_filtered = svc_filtered.sort_values(by="Call Logged Date", ascending=False)
+            
+            for index, row in svc_filtered.iterrows():
+                date_val = row.get("Call Logged Date", "N/A")
+                type_val = row.get("Call Type", "N/A")
+                hmr_val = row.get("Call HMR", "N/A")
+                comment_val = row.get(comment_col, "No comments available.")
+                
+                expander_label = f"📅 {date_val} | Type: {type_val} | HMR: {hmr_val}"
+                with st.expander(expander_label):
+                    st.info(comment_val)
+        else:
+            st.info("Is machine ke liye koi service request nahi mili.")
+    
+    st.markdown("---")
+
+    # 4) FOC Details (Specific to Selected Machine)
+    st.subheader("📦 FOC Details")
+    foc_fab_col = next((c for c in foc.columns if "fabrication" in c.lower()), None)
+    
+    if foc_fab_col:
+        foc_filtered = foc[foc[foc_fab_col].astype(str) == str(selected_machine)]
+        foc_display_cols = ["Created On", "FOC Number", "Work Order Number", "Customer Name", "FOC Type", "MODEL", "FABRICATION NO.", "Failure Material Details", "Part Code", "ELGI IVOICE NO."]
+        existing_foc_cols = [c for c in foc_display_cols if c in foc.columns]
+        
+        if not foc_filtered.empty:
+            st.dataframe(foc_filtered[existing_foc_cols], use_container_width=True)
+        else:
+            st.info("Is machine ke liye koi FOC records nahi hain.")
+
+else:
+    st.info("Sidebar se koi Machine select karein details dekhne ke liye.")

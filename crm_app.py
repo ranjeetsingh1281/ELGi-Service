@@ -22,27 +22,43 @@ for df in [master, service, foc]:
     if not df.empty:
         df.columns = df.columns.str.strip()
 
-# Sidebar Filters
+# --- SIDEBAR FILTERS (FIXED COLUMN MAPPING) ---
 st.sidebar.title("CRM Filters")
-customer_col = "CUSTOMER NAME" if "CUSTOMER NAME" in master.columns else master.columns[0]
-machine_col = "FABRICATION NO." if "FABRICATION NO." in master.columns else master.columns[1]
 
-# Sidebar Category Filter
-if "Category" in master.columns:
-    cat_list = ["All"] + sorted(master["Category"].dropna().unique().tolist())
+# Columns ko manually fix kar rahe hain taaki Bihar/Jharkhand na dikhe
+customer_col = "CUSTOMER NAME"
+machine_col = "FABRICATION NO." # Yahan 'Territory' ya 'State' column pick ho raha tha, use fix kar diya
+category_col = "Category"
+
+# 1. Select Category
+if category_col in master.columns:
+    cat_list = ["All"] + sorted(master[category_col].dropna().unique().tolist())
     selected_category = st.sidebar.selectbox("Select Category", cat_list)
     if selected_category != "All":
-        master = master[master["Category"] == selected_category]
+        master = master[master[category_col] == selected_category]
 
-selected_customer = st.sidebar.selectbox("Select Customer", ["All"] + sorted(master[customer_col].dropna().unique().tolist()))
+# 2. Select Customer
+if customer_col in master.columns:
+    cust_list = ["All"] + sorted(master[customer_col].dropna().unique().tolist())
+    selected_customer = st.sidebar.selectbox("Select Customer", cust_list)
+else:
+    selected_customer = "All"
 
-# Machine selection logic
+# 3. Track Machine (Fabrication No.) - Filtering Logic
 filtered_master = master.copy()
 if selected_customer != "All":
-    filtered_master = master[master[customer_col] == selected_customer]
+    filtered_master = filtered_master[filtered_master[customer_col] == selected_customer]
 
-machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
+# Final List taiyar karna
+if machine_col in filtered_master.columns:
+    # Sirf Fabrication Numbers ki list banayenge
+    machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
+else:
+    machine_list = ["All"]
+    st.sidebar.error("Warning: 'FABRICATION NO.' column not found!")
+
 selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
+
 
 # --- DASHBOARD START ---
 st.title("📇 PRIME POWER CRM App")

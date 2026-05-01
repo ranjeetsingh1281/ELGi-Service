@@ -125,14 +125,37 @@ else:
 
 # charts
 chart_cols = st.columns(2)
-if status_col:
-    status_chart = px.bar(status_counts.reset_index().rename(columns={"index": "Status", status_col: "Count"}), x="Status", y="Count", title="Service Status Breakdown")
-    chart_cols[0].plotly_chart(status_chart, use_container_width=True)
-if category_col:
-    category_counts = filtered[category_col].dropna().astype(str).value_counts()
-    category_chart = px.pie(category_counts.reset_index().rename(columns={"index": "Category", category_col: "Count"}), names="Category", values=category_col, title="Category Distribution")
-    chart_cols[1].plotly_chart(category_chart, use_container_width=True)
 
+if status_col:
+    # 1. Prepare the data: reset_index() creates a DataFrame with 'index' and the count
+    # We rename them clearly to avoid any ValueError
+    df_status = status_counts.reset_index()
+    df_status.columns = ['Status', 'Count'] 
+    
+    # 2. Create the chart using the new explicit column names
+    status_chart = px.bar(
+        df_status, 
+        x="Status", 
+        y="Count", 
+        title="Service Status Breakdown",
+        color="Status",
+        color_discrete_sequence=px.colors.qualitative.Safe
+    )
+    chart_cols[0].plotly_chart(status_chart, use_container_width=True)
+
+if category_col:
+    # Similar fix for the pie chart
+    df_category = category_counts.reset_index()
+    df_category.columns = ['Category', 'Count']
+    
+    category_chart = px.pie(
+        df_category, 
+        names="Category", 
+        values="Count", 
+        title="Category Distribution",
+        hole=0.4
+    )
+    chart_cols[1].plotly_chart(category_chart, use_container_width=True)
 # data tables
 st.subheader("Customer & Machine Summary")
 st.dataframe(filtered[[c for c in [customer_col, machine_col, status_col, category_col, contact_col, email_col] if c is not None]], use_container_width=True)

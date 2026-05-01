@@ -80,35 +80,32 @@ if selected_machine != "All" and service_fab_col:
     svc_filtered = service[service[service_fab_col].astype(str) == str(selected_machine)].copy()
     
     if not svc_filtered.empty:
-        # Aapke bataye gaye columns ko map karna
-        # Note: Columns ke naam aapki file ke hisab se exact hone chahiye (e.g., 'Call Logged Date' or 'Service Engineer Comment')
+        # a, b, c columns jo table mein dikhane hain
         svc_display_cols = ["Call Logged Date", "Call Type", "Call HMR"]
+        comment_col = "Service Engineer Comments"[cite: 1]
         
-        # Check karna ki columns file mein hain ya nahi
-        existing_svc_cols = [c for c in svc_display_cols if c in svc_filtered.columns]
-        comment_col = "Service Engineer Comments" # Ya "Remarks" / "Engineer Remarks"
+        # Latest date pehle dikhane ke liye sort karna
+        svc_filtered = svc_filtered.sort_values(by="Call Logged Date", ascending=False)
         
-        # Table display karna (sirf a, b, c columns ke liye)
-        st.dataframe(svc_filtered[existing_svc_cols], use_container_width=True)
-        
-        # d) Service Engineer Comments (Jo click hone par expand hoga)[cite: 1]
-        if comment_col in svc_filtered.columns:
-            with st.expander("💬 View Service Engineer Comments"):
-                # Har ek service visit ke liye comment dikhana[cite: 1]
-                for index, row in svc_filtered.iterrows():
-                    date_val = row.get("Call Logged Date", "N/A")
-                    comment_val = row.get(comment_col, "No comments provided.")
-                    st.markdown(f"**Date: {date_val}**")
-                    st.info(comment_val)
-                    st.divider()
-        else:
-            st.info("Note: 'Service Engineer Comments' column not found in file.")
+        # Har ek Service Request ke liye alag Expander[cite: 1]
+        for index, row in svc_filtered.iterrows():
+            date_val = row.get("Call Logged Date", "N/A")
+            type_val = row.get("Call Type", "N/A")
+            hmr_val = row.get("Call HMR", "N/A")
+            comment_val = row.get(comment_col, "No comments available.")[cite: 1]
             
+            # Expander title mein Date aur Call Type dikhega[cite: 1]
+            expander_label = f"📅 {date_val} | Type: {type_val} | HMR: {hmr_val}"
+            
+            with st.expander(expander_label):
+                st.markdown(f"**{comment_col}:**")[cite: 1]
+                st.info(comment_val)[cite: 1]
+                
     else:
-        st.info(f"No recent service records found for machine: {selected_machine}")
+        st.info(f"No recent service records found for machine: {selected_machine}")[cite: 1]
 else:
-    st.warning("Please select a specific Machine to view Service History.")
-
+    st.warning("Please select a specific Machine to view Service History.")[cite: 1]
+    
 # --- SECTION 2: FOC DETAILS (Tracked Machine Only) ---
 st.subheader("📦 FOC Details")
 if selected_machine != "All" and foc_fab_col:

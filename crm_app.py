@@ -54,7 +54,7 @@ if selected_customer != "All":
 else:
     machine_list += sorted(master[machine_col].dropna().unique().tolist())
 
-selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
+selected_machine = st.sidebar.selectbox("Fabrication No.", machine_list)
 
 # Dashboard Title
 st.title("📇 PRIME POWER CRM App")

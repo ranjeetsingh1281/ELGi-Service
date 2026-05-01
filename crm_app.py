@@ -86,12 +86,12 @@ if selected_machine != "All" and service_fab_col:
         
         # Check karna ki columns file mein hain ya nahi
         existing_svc_cols = [c for c in svc_display_cols if c in svc_filtered.columns]
-        comment_col = "Service Engineer Comment" # Ya "Remarks" / "Engineer Remarks"
+        comment_col = "Service Engineer Comments" # Ya "Remarks" / "Engineer Remarks"
         
         # Table display karna (sirf a, b, c columns ke liye)
         st.dataframe(svc_filtered[existing_svc_cols], use_container_width=True)
         
-        # d) Service Engineer Comment (Jo click hone par expand hoga)[cite: 1]
+        # d) Service Engineer Comments (Jo click hone par expand hoga)[cite: 1]
         if comment_col in svc_filtered.columns:
             with st.expander("💬 View Service Engineer Comments"):
                 # Har ek service visit ke liye comment dikhana[cite: 1]
@@ -102,7 +102,7 @@ if selected_machine != "All" and service_fab_col:
                     st.info(comment_val)
                     st.divider()
         else:
-            st.info("Note: 'Service Engineer Comment' column not found in file.")
+            st.info("Note: 'Service Engineer Comments' column not found in file.")
             
     else:
         st.info(f"No recent service records found for machine: {selected_machine}")

@@ -194,10 +194,23 @@ if service_status_col:
 if service_engineer_col:
     service_view = service_view.rename(columns={service_engineer_col: "Service Engineer"})
 
-# Identify columns that actually exist in the dataframe
+# Identify available columns
 service_display_cols = [c for c in ["Customer", "Fabrication", service_call_col, service_next_visit_col, "Status", "Service Engineer"] if c in service_view.columns and c is not None]
 
-if not service_view.empty and len(service_display_cols) > 0:
+if not service_view.empty and service_display_cols:
+    # 1. Decide on a sorting column
+    sort_col = service_next_visit_col if service_next_visit_col in service_view.columns else service_display_cols[0]
+    
+    # 2. CREATE A SORTING KEY: Convert the column to string to prevent TypeError
+    # This is the "magic" line that stops the crash
+    service_view[f"{sort_col}_sort"] = service_view[sort_col].astype(str)
+    
+    # 3. Sort using the string-version column but display the original columns
+    sorted_service = service_view.sort_values(by=f"{sort_col}_sort", ascending=True).head(50)
+    st.dataframe(sorted_service[service_display_cols], use_container_width=True)
+else:
+    st.info("No service requests found to display.")
+
     # Logic to pick a safe sorting column
     if service_next_visit_col in service_view.columns:
         sort_col = service_next_visit_col

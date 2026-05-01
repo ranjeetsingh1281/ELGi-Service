@@ -43,7 +43,7 @@ service_fab_col = get_col(service.columns, ["fabrication number", "fabrication n
 foc_fab_col = get_col(foc.columns, ["fabrication no.", "fabrication no", "fabrication"]) # FOC file ke liye
 
 # Sidebar Filters
-st.sidebar.title("ELGi CRM Filters")
+st.sidebar.title("CRM Filters")
 selected_customer = st.sidebar.selectbox("Select Customer", ["All"] + sorted(master[customer_col].dropna().unique().tolist()))
 
 # Machine Selection (Tracking)
@@ -57,7 +57,7 @@ else:
 selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
 
 # Dashboard Title
-st.title("📇 ELGi CRM App")
+st.title("📇 PRIME POWER CRM App")
 
 # Filtering Logic
 filtered_master = master.copy()
@@ -74,10 +74,36 @@ col3.metric("Current Selection", selected_machine if selected_machine != "All" e
 
 # --- SECTION 1: RECENT SERVICE REQUESTS (Tracked Machine Only) ---
 st.subheader("🛠️ Recent Service Requests")
+
 if selected_machine != "All" and service_fab_col:
-    svc_filtered = service[service[service_fab_col].astype(str) == str(selected_machine)]
+    # Machine ke basis par filter karna
+    svc_filtered = service[service[service_fab_col].astype(str) == str(selected_machine)].copy()
+    
     if not svc_filtered.empty:
-        st.dataframe(svc_filtered, use_container_width=True)
+        # Aapke bataye gaye columns ko map karna
+        # Note: Columns ke naam aapki file ke hisab se exact hone chahiye (e.g., 'Call Logged Date' or 'Service Engineer Comment')
+        svc_display_cols = ["Call Logged Date", "Call Type", "Call HMR"]
+        
+        # Check karna ki columns file mein hain ya nahi
+        existing_svc_cols = [c for c in svc_display_cols if c in svc_filtered.columns]
+        comment_col = "Service Engineer Comment" # Ya "Remarks" / "Engineer Remarks"
+        
+        # Table display karna (sirf a, b, c columns ke liye)
+        st.dataframe(svc_filtered[existing_svc_cols], use_container_width=True)
+        
+        # d) Service Engineer Comment (Jo click hone par expand hoga)[cite: 1]
+        if comment_col in svc_filtered.columns:
+            with st.expander("💬 View Service Engineer Comments"):
+                # Har ek service visit ke liye comment dikhana[cite: 1]
+                for index, row in svc_filtered.iterrows():
+                    date_val = row.get("Call Logged Date", "N/A")
+                    comment_val = row.get(comment_col, "No comments provided.")
+                    st.markdown(f"**Date: {date_val}**")
+                    st.info(comment_val)
+                    st.divider()
+        else:
+            st.info("Note: 'Service Engineer Comment' column not found in file.")
+            
     else:
         st.info(f"No recent service records found for machine: {selected_machine}")
 else:

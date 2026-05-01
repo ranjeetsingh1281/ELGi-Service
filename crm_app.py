@@ -61,7 +61,10 @@ selected_machine = st.sidebar.selectbox("Fabrication No.", machine_list)
 st.title("📇 PRIME POWER CRM App")
 
 # 1. Top Metrics (Total Customers, Machines & Unit Status)
+# --- Metrics Section Fix ---
 col1, col2, col3, col4 = st.columns(4)
+
+# Yahan 'col1' use karein, 'coll' nahi
 col1.metric("Total Customers", filtered_master[customer_col].nunique() if customer_col else 0)
 col2.metric("Total Machines", filtered_master[machine_col].nunique() if machine_col else 0)
 

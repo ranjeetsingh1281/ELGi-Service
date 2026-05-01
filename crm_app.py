@@ -184,6 +184,7 @@ else:
 st.subheader("Recent Service Requests")
 service_view = service_enriched.copy()
 
+# Rename columns safely
 if service_customer_col:
     service_view = service_view.rename(columns={service_customer_col: "Customer"})
 if service_fab_col:
@@ -193,6 +194,25 @@ if service_status_col:
 if service_engineer_col:
     service_view = service_view.rename(columns={service_engineer_col: "Service Engineer"})
 
+# Identify columns that actually exist in the dataframe
+service_display_cols = [c for c in ["Customer", "Fabrication", service_call_col, service_next_visit_col, "Status", "Service Engineer"] if c in service_view.columns and c is not None]
+
+if not service_view.empty and len(service_display_cols) > 0:
+    # Logic to pick a safe sorting column
+    if service_next_visit_col in service_view.columns:
+        sort_col = service_next_visit_col
+    else:
+        sort_col = service_display_cols[0] # Use the first available valid column name
+    
+    # Final check: Ensure sort_col is not None before sorting
+    if sort_col:
+        sorted_service = service_view[service_display_cols].sort_values(by=sort_col, ascending=True).head(50)
+        st.dataframe(sorted_service, use_container_width=True)
+    else:
+        st.dataframe(service_view[service_display_cols].head(50), use_container_width=True)
+else:
+    st.info("No service requests found to display.")
+    
 # Define which columns we want to show
 service_display_cols = [c for c in ["Customer", "Fabrication", service_call_col, service_next_visit_col, "Status", "Service Engineer"] if c in service_view.columns]
 

@@ -201,16 +201,16 @@ if not service_view.empty and service_display_cols:
     # 1. Decide on a sorting column
     sort_col = service_next_visit_col if service_next_visit_col in service_view.columns else service_display_cols[0]
     
-    # 2. CREATE A SORTING KEY: Convert the column to string to prevent TypeError
-    # This is the "magic" line that stops the crash
+    # 2. Create a sorting key as a string to prevent TypeErrors
     service_view[f"{sort_col}_sort"] = service_view[sort_col].astype(str)
     
-    # 3. Sort using the string-version column but display the original columns
+    # 3. Sort and display
     sorted_service = service_view.sort_values(by=f"{sort_col}_sort", ascending=True).head(50)
     st.dataframe(sorted_service[service_display_cols], use_container_width=True)
 else:
+    # This 'else' must align with 'if not service_view.empty'
     st.info("No service requests found to display.")
-
+    
     # Logic to pick a safe sorting column
     if service_next_visit_col in service_view.columns:
         sort_col = service_next_visit_col

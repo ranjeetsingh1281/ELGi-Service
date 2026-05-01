@@ -82,29 +82,30 @@ if selected_machine != "All" and service_fab_col:
     if not svc_filtered.empty:
         # a, b, c columns jo table mein dikhane hain
         svc_display_cols = ["Call Logged Date", "Call Type", "Call HMR"]
-        comment_col = "Service Engineer Comments"[cite: 1]
+        comment_col = "Service Engineer Comments"
         
         # Latest date pehle dikhane ke liye sort karna
-        svc_filtered = svc_filtered.sort_values(by="Call Logged Date", ascending=False)
+        if "Call Logged Date" in svc_filtered.columns:
+            svc_filtered = svc_filtered.sort_values(by="Call Logged Date", ascending=False)
         
-        # Har ek Service Request ke liye alag Expander[cite: 1]
+        # Har ek Service Request ke liye alag Expander
         for index, row in svc_filtered.iterrows():
             date_val = row.get("Call Logged Date", "N/A")
             type_val = row.get("Call Type", "N/A")
             hmr_val = row.get("Call HMR", "N/A")
-            comment_val = row.get(comment_col, "No comments available.")[cite: 1]
+            comment_val = row.get(comment_col, "No comments available.")
             
-            # Expander title mein Date aur Call Type dikhega[cite: 1]
+            # Expander title mein Date, Type aur HMR dikhega
             expander_label = f"📅 {date_val} | Type: {type_val} | HMR: {hmr_val}"
             
             with st.expander(expander_label):
-                st.markdown(f"**{comment_col}:**")[cite: 1]
-                st.info(comment_val)[cite: 1]
+                st.markdown(f"**{comment_col}:**")
+                st.info(comment_val)
                 
     else:
-        st.info(f"No recent service records found for machine: {selected_machine}")[cite: 1]
+        st.info(f"No recent service records found for machine: {selected_machine}")
 else:
-    st.warning("Please select a specific Machine to view Service History.")[cite: 1]
+    st.warning("Please select a specific Machine to view Service History.")
     
 # --- SECTION 2: FOC DETAILS (Tracked Machine Only) ---
 st.subheader("📦 FOC Details")

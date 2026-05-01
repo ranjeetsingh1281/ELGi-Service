@@ -183,6 +183,7 @@ else:
 # service follow-up list
 st.subheader("Recent Service Requests")
 service_view = service_enriched.copy()
+
 if service_customer_col:
     service_view = service_view.rename(columns={service_customer_col: "Customer"})
 if service_fab_col:
@@ -192,9 +193,18 @@ if service_status_col:
 if service_engineer_col:
     service_view = service_view.rename(columns={service_engineer_col: "Service Engineer"})
 
+# Define which columns we want to show
 service_display_cols = [c for c in ["Customer", "Fabrication", service_call_col, service_next_visit_col, "Status", "Service Engineer"] if c in service_view.columns]
-st.dataframe(service_view[service_display_cols].sort_values(by=[service_next_visit_col] if service_next_visit_col in service_view.columns else service_display_cols[:1], ascending=True).head(50), use_container_width=True)
 
+if not service_view.empty and service_display_cols:
+    # Determine sorting column: prioritize next visit date if it exists
+    sort_col = service_next_visit_col if service_next_visit_col in service_view.columns else service_display_cols[0]
+    
+    # Sort and display
+    sorted_service = service_view[service_display_cols].sort_values(by=sort_col, ascending=True).head(50)
+    st.dataframe(sorted_service, use_container_width=True)
+else:
+    st.info("No recent service requests found or columns missing in 'Service_Details.xlsx'.")
 # customer detail view
 st.sidebar.header("Customer Detail")
 if selected_customer != "All" and customer_col:

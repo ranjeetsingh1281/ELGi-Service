@@ -22,43 +22,44 @@ for df in [master, service, foc]:
     if not df.empty:
         df.columns = df.columns.str.strip()
 
-# --- SIDEBAR FILTERS (FIXED COLUMN MAPPING) ---
+# --- SIDEBAR FILTERS (SMART COLUMN MAPPING) ---
 st.sidebar.title("CRM Filters")
 
-# Columns ko manually fix kar rahe hain taaki Bihar/Jharkhand na dikhe
-customer_col = "CUSTOMER NAME"
-machine_col = "FABRICATION NO." # Yahan 'Territory' ya 'State' column pick ho raha tha, use fix kar diya
-category_col = "Category"
+# 1. Smart Column Detection
+# Yeh logic Excel mein 'Fabrication' se milta-julta koi bhi column khud dhoond lega
+def find_column(df, keywords):
+    for col in df.columns:
+        if any(kw.lower() in col.lower() for kw in keywords):
+            return col
+    return None
 
-# 1. Select Category
+customer_col = find_column(master, ["customer name", "customer"]) or master.columns[0]
+machine_col = find_column(master, ["fabrication", "fab no", "unit no"]) or master.columns[1]
+category_col = find_column(master, ["category", "model group"]) or "Category"
+
+# 2. Select Category Filter
 if category_col in master.columns:
     cat_list = ["All"] + sorted(master[category_col].dropna().unique().tolist())
     selected_category = st.sidebar.selectbox("Select Category", cat_list)
     if selected_category != "All":
         master = master[master[category_col] == selected_category]
 
-# 2. Select Customer
-if customer_col in master.columns:
-    cust_list = ["All"] + sorted(master[customer_col].dropna().unique().tolist())
-    selected_customer = st.sidebar.selectbox("Select Customer", cust_list)
-else:
-    selected_customer = "All"
+# 3. Select Customer Filter
+cust_list = ["All"] + sorted(master[customer_col].dropna().unique().tolist())
+selected_customer = st.sidebar.selectbox("Select Customer", cust_list)
 
-# 3. Track Machine (Fabrication No.) - Filtering Logic
+# 4. Track Machine (Fabrication No.) Logic
 filtered_master = master.copy()
 if selected_customer != "All":
     filtered_master = filtered_master[filtered_master[customer_col] == selected_customer]
 
-# Final List taiyar karna
-if machine_col in filtered_master.columns:
-    # Sirf Fabrication Numbers ki list banayenge
-    machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
-else:
-    machine_list = ["All"]
-    st.sidebar.error("Warning: 'FABRICATION NO.' column not found!")
-
+# Machine list taiyar karna
+machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
 selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
 
+# Metric fix (Error yahan aa raha tha)
+# Agar column nahi milta toh crash hone ke bajaye 0 dikhayega[cite: 1]
+total_machines = filtered_master[machine_col].nunique() if machine_col in filtered_master.columns else 0
 
 # --- DASHBOARD START ---
 st.title("📇 PRIME POWER CRM App")

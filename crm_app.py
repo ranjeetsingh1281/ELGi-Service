@@ -57,55 +57,75 @@ else:
 selected_machine = st.sidebar.selectbox("Fabrication No.", machine_list)
 
 # Dashboard Title
+# --- DASHBOARD START ---
 st.title("📇 PRIME POWER CRM App")
 
-# Filtering Logic
-filtered_master = master.copy()
-if selected_customer != "All":
-    filtered_master = filtered_master[filtered_master[customer_col] == selected_customer]
-if selected_machine != "All":
-    filtered_master = filtered_master[filtered_master[machine_col] == selected_machine]
+# 1. Top Metrics (Total Customers, Machines & Unit Status)
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Customers", filtered_master[customer_col].nunique() if customer_col else 0)
+col2.metric("Total Machines", filtered_master[machine_col].nunique() if machine_col else 0)
 
-# Metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Customers", filtered_master[customer_col].nunique())
-col2.metric("Total Machines", filtered_master[machine_col].nunique())
-col3.metric("Current Selection", selected_machine if selected_machine != "All" else "Multiple")
-
-# --- SECTION 1: RECENT SERVICE REQUESTS (Tracked Machine Only) ---
-st.subheader("🛠️ Recent Service Requests")
-
-if selected_machine != "All" and service_fab_col:
-    # Machine ke basis par filter karna
-    svc_filtered = service[service[service_fab_col].astype(str) == str(selected_machine)].copy()
-    
-    if not svc_filtered.empty:
-        # a, b, c columns jo table mein dikhane hain
-        svc_display_cols = ["Call Logged Date", "Call Type", "Call HMR"]
-        comment_col = "Service Engineer Comments"
-        
-        # Latest date pehle dikhane ke liye sort karna
-        if "Call Logged Date" in svc_filtered.columns:
-            svc_filtered = svc_filtered.sort_values(by="Call Logged Date", ascending=False)
-        
-        # Har ek Service Request ke liye alag Expander
-        for index, row in svc_filtered.iterrows():
-            date_val = row.get("Call Logged Date", "N/A")
-            type_val = row.get("Call Type", "N/A")
-            hmr_val = row.get("Call HMR", "N/A")
-            comment_val = row.get(comment_col, "No comments available.")
-            
-            # Expander title mein Date, Type aur HMR dikhega
-            expander_label = f"📅 {date_val} | Type: {type_val} | HMR: {hmr_val}"
-            
-            with st.expander(expander_label):
-                st.markdown(f"**{comment_col}:**")
-                st.info(comment_val)
-                
-    else:
-        st.info(f"No recent service records found for machine: {selected_machine}")
+if "Unit Status" in filtered_master.columns:
+    status_counts = filtered_master["Unit Status"].value_counts()
+    col3.metric("Running Units", status_counts.get("Running", 0))
+    col4.metric("Breakdown Units", status_counts.get("Breakdown", 0))
 else:
-    st.warning("Please select a specific Machine to view Service History.")
+    col3.metric("Running", "N/A")
+    col4.metric("Breakdown", "N/A")
+
+st.markdown("---")
+
+# 2. 4-Column Machine Tracker (Sirf tab dikhega jab Machine select hogi)
+st.subheader(f"🔍 Machine Detailed Tracker")
+
+if selected_machine != "All":
+    # Selected machine ka data filter karna
+    m_data = master[master[machine_col].astype(str) == str(selected_machine)].iloc[0]
+    
+    # 4 Columns layout setup
+    c1, c2, c3, c4 = st.columns(4)
+    
+    with c1:
+        st.info("👤 Customer Info")
+        # Column 1: Customer Details
+        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
+        st.write(f"**Address:** {m_data.get('Address', 'N/A')}")
+        st.write(f"**Email:** {m_data.get('EMAIL ID', 'N/A')}")
+        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
+        st.write(f"**Last Service Date:** {m_data.get('Last Service Date', 'N/A')}")
+        st.write(f"**Last Service HMR:** {m_data.get('Last Service HMR', 'N/A')}")
+        st.write(f"**Avg. Hrs:** {m_data.get('Avg. Hrs', '0')}")
+        st.write(f"**HMR Cal.:** {m_data.get('HMR Cal.', 'N/A')}")
+
+    with c2:
+        st.warning("📅 Last Replacement")
+        # Column 2: R Dates
+        r_cols = ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]
+        for col in r_cols:
+            st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
+
+    with c3:
+        st.success("⏳ LIVE Remaining")
+        # Column 3: Remaining Hours
+        live_cols = ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", 
+                     "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", 
+                     "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", 
+                     "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", 
+                     "LIVE - 3000 Valve kit Remaining Hours"]
+        for col in live_cols:
+            st.write(f"**{col}:** {m_data.get(col, '0')}")
+
+    with c4:
+        st.error("🚨 Next Due Dates")
+        # Column 4: Due Dates
+        due_cols = ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]
+        for col in due_cols:
+            st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
+else:
+    st.info("Sidebar se koi Machine select karein full details dekhne ke liye.")
+
+st.markdown("---")
+# Iske niche aapka Recent Service Request aur FOC wala code rahega.
     
 # --- SECTION 2: FOC DETAILS (Tracked Machine Only) ---
 st.subheader("📦 FOC Details")

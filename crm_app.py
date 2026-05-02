@@ -5,55 +5,52 @@ from io import BytesIO
 # --- MODERN PAGE CONFIG ---
 st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_sidebar_state="expanded")
 
-# --- GLASS UI & ANIMATION CSS ---
+# --- FIXED GLASS UI CSS (FOR VISIBILITY) ---
 st.markdown("""
     <style>
-    /* Global Background & Dark Mode feel */
+    /* Global Background */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc;
+        color: #f8fafc !important; /* Force white text */
     }
     
-    /* Sidebar Redesign */
-    [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.8);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    /* Global Text Color Fix for all standard elements */
+    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+        color: #f8fafc !important;
+    }
+
+    /* Sidebar Labels Fix */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: #ffffff !important;
+        font-weight: 600;
     }
 
     /* Glassmorphism KPI Cards */
-    .stMetric {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .stMetric:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    /* Animated Text */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .main-title {
-        font-size: 3rem;
+    div[data-testid="stMetricValue"] > div {
+        color: #38bdf8 !important; /* Bright Blue for numbers */
         font-weight: 800;
-        background: -webkit-linear-gradient(#38bdf8, #818cf8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: fadeIn 1s ease-out;
+    }
+    div[data-testid="stMetricLabel"] > div > p {
+        color: #94a3b8 !important; /* Light grey for labels */
     }
 
-    /* Modern Tables */
-    .stDataFrame {
-        border-radius: 10px;
-        overflow: hidden;
+    /* 4-Column Tracker Text Fix */
+    .stVerticalBlock div[style*="background"] p {
+        color: #ffffff !important;
+    }
+
+    /* Expander Text Color */
+    .streamlit-expanderHeader p {
+        color: #ffffff !important;
+    }
+
+    /* Modern Glass Look for Metrics */
+    [data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.07) !important;
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     </style>
     """, unsafe_allow_html=True)

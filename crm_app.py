@@ -141,26 +141,30 @@ if selected_machine != "All":
         st.markdown("""<div style="background:rgba(56,189,248,0.1); padding:15px; border-radius:10px; border-left:5px solid #38bdf8;">
             <h4 style="margin:0;">👤 Customer Info</h4></div>""", unsafe_allow_html=True)
         st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
+        st.write(f"**Address:** {m_data.get('Address', 'N/A')}")
         st.write(f"**Email:** {m_data.get('EMAIL ID', 'N/A')}")
         st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
-        st.write(f"**Last Service:** {format_date(m_data.get('Last Service Date'))}")
+        st.write(f"**Last Service Date:** {format_date(m_data.get('Last Service Date'))}")
+        st.write(f"**Last Service HMR:** {m_data.get('Last Service HMR', 'N/A')}")
+        st.write(f"**Avg. Hrs:** {m_data.get('Avg. Hrs', '0')}")
+        st.write(f"**HMR Cal.:** {m_data.get('HMR Cal.', 'N/A')}")
 
     with c2:
         st.markdown("""<div style="background:rgba(251,191,36,0.1); padding:15px; border-radius:10px; border-left:5px solid #fbbf24;">
             <h4 style="margin:0;">📅 Last Replacement</h4></div>""", unsafe_allow_html=True)
-        for col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date"]:
+        for col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]:
             st.write(f"**{col}:** {format_date(m_data.get(col))}")
 
     with c3:
         st.markdown("""<div style="background:rgba(52,211,153,0.1); padding:15px; border-radius:10px; border-left:5px solid #34d399;">
             <h4 style="margin:0;">⏳ LIVE Remaining</h4></div>""", unsafe_allow_html=True)
-        for col in ["LIVE - Oil remaining", "LIVE - Separator remaining"]:
+        for col in ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", "LIVE - 3000 Valve kit Remaining Hours"]:
             st.write(f"**{col}:** {m_data.get(col, '0')}")
 
     with c4:
         st.markdown("""<div style="background:rgba(248,113,113,0.1); padding:15px; border-radius:10px; border-left:5px solid #f87171;">
             <h4 style="margin:0;">🚨 Next Due Dates</h4></div>""", unsafe_allow_html=True)
-        for col in ["OIL DUE DATE", "AOS DUE DATE"]:
+        for col in ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]:
             st.write(f"**{col}:** {format_date(m_data.get(col))}")
 
     st.markdown("---")

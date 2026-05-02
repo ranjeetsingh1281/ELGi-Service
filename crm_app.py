@@ -6,31 +6,36 @@ from io import BytesIO
 st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. GLASS UI & VISIBILITY CSS ---
+# --- CRIMSON UI CSS UPDATE ---
 st.markdown("""
     <style>
+    /* Global Background changed to Crimson Gradient */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #DC143C 0%, #B22222 100%);
+        background: linear-gradient(135deg, #8b0000 0%, #dc143c 100%);
         color: #f8fafc !important;
     }
+    
+    /* Sidebar Background (Slightly darker Crimson) */
     [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.95) !important;
+        background-color: rgba(60, 0, 0, 0.95) !important;
         backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
-    /* Sidebar Text Visibility */
+
+    /* Rest of the CSS remains same for visibility */
     [data-testid="stSidebar"] label p { color: #ffffff !important; font-weight: 700 !important; }
     [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #0f172a !important; font-weight: 600 !important; }
     
-    /* KPI Metric Cards */
     [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.07) !important;
+        background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(10px);
         border-radius: 12px;
         padding: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    div[data-testid="stMetricValue"] > div { color: #38bdf8 !important; font-weight: 800; }
+    div[data-testid="stMetricValue"] > div { color: #ffffff !important; font-weight: 800; }
     
-    h1, h2, h3, h4, p, span { color: #f8fafc !important; }
+    h1, h2, h3, h4, p, span { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 

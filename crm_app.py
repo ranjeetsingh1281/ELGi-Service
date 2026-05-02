@@ -160,7 +160,7 @@ if sel_mach != "All":
         if not s_disp.empty:
             if "Call Logged Date" in s_disp.columns: s_disp = s_disp.sort_values("Call Logged Date", ascending=False)
             for _, row in s_disp.head(5).iterrows():
-                with st.expander(f"📅 {format_date(row.get('Call Logged Date'))} | {row.get('Call HMR')} | {row.get("📝",'Call Type','N/A')}"):
+                with st.expander(f"📅 {format_date(row.get('Call Logged Date'))} | {row.get('Call HMR')} | {row.get("📝"'Call Type','N/A')}"):
                     st.info(row.get("Service Engineer Comments", "No comments."))
     
     # 4) FOC Details

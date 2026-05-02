@@ -112,10 +112,10 @@ kpi2.metric("⚙️ Total Machines", f_master[mach_col].nunique())
 
 if "Unit Status" in f_master.columns:
     status = f_master["Unit Status"].value_counts()
-    kpi3.metric("🚚 Active", status_counts.get("Active", 0))
-    kpi4.metric("🗑️ Scraped", status_counts.get("Scraped", 0))
-    kpi5.metric("🚔 Shifted", status_counts.get("Shifted", 0))
-    kpi6.metric("❌ Sold", status_counts.get("Sold", 0))
+    kpi3.metric("🚚 Active", status.get("Active", 0))
+    kpi4.metric("🗑️ Scraped", status.get("Scraped", 0))
+    kpi5.metric("🚔 Shifted", status.get("Shifted", 0))
+    kpi6.metric("❌ Sold", status.get("Sold", 0))
 
 st.markdown("---")
 

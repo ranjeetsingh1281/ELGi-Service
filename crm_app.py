@@ -67,7 +67,19 @@ mach_col = find_col(master, ["fabrication", "fab no"]) or "FABRICATION NO."
 warr_type_col = find_col(master, ["warranty type", "warranty pd"]) or "Warranty Type"
 warr_exp_col = find_col(master, ["warranty expires", "warranty exp"]) or "Warranty Expires on"
 
-# --- SIDEBAR ---
+# --- SIDEBAR WITH LOGOS ---
+with st.sidebar:
+    # Dono logos ko side-by-side dikhane ke liye columns
+    log_col1, log_col2 = st.columns(2)
+    
+    with log_col1:
+        # Prime Power Logo
+        st.image("input_file_1.png", use_container_width=True)
+    
+    with log_col2:
+        # ELGi Logo
+        st.image("input_file_0.png", use_container_width=True)
+        
 with st.sidebar:
     st.markdown("### 🛠️ Control Panel")
     

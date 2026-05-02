@@ -17,49 +17,49 @@ def load_data():
 
 master, service, foc = load_data()
 
+# Helper: Date formatting dd-mmm-yy
+def format_date(val):
+    if pd.isna(val) or val == "N/A" or str(val).strip() == "":
+        return "N/A"
+    try:
+        return pd.to_datetime(val).strftime('%d-%b-%y')
+    except:
+        return str(val)
+
+# Helper: Smart Column Detection
+def find_column(df, keywords):
+    for col in df.columns:
+        if any(kw.lower() in str(col).lower() for kw in keywords):
+            return col
+    return None
+
 # Clean columns
 for df in [master, service, foc]:
     if not df.empty:
         df.columns = df.columns.str.strip()
 
-# --- SIDEBAR FILTERS (SMART COLUMN MAPPING) ---
+# --- SIDEBAR FILTERS ---
 st.sidebar.title("CRM Filters")
 
-# 1. Smart Column Detection
-# Yeh logic Excel mein 'Fabrication' se milta-julta koi bhi column khud dhoond lega
-def find_column(df, keywords):
-    for col in df.columns:
-        if any(kw.lower() in col.lower() for kw in keywords):
-            return col
-    return None
-
-customer_col = find_column(master, ["customer name", "customer"]) or master.columns[0]
-machine_col = find_column(master, ["fabrication", "fab no", "unit no"]) or master.columns[1]
+customer_col = find_column(master, ["customer name", "customer"]) or "CUSTOMER NAME"
+machine_col = find_column(master, ["fabrication", "fab no"]) or "FABRICATION NO."
 category_col = find_column(master, ["category", "model group"]) or "Category"
 
-# 2. Select Category Filter
 if category_col in master.columns:
     cat_list = ["All"] + sorted(master[category_col].dropna().unique().tolist())
     selected_category = st.sidebar.selectbox("Select Category", cat_list)
     if selected_category != "All":
         master = master[master[category_col] == selected_category]
 
-# 3. Select Customer Filter
 cust_list = ["All"] + sorted(master[customer_col].dropna().unique().tolist())
 selected_customer = st.sidebar.selectbox("Select Customer", cust_list)
 
-# 4. Track Machine (Fabrication No.) Logic
 filtered_master = master.copy()
 if selected_customer != "All":
     filtered_master = filtered_master[filtered_master[customer_col] == selected_customer]
 
-# Machine list taiyar karna
 machine_list = ["All"] + sorted(filtered_master[machine_col].dropna().astype(str).unique().tolist())
 selected_machine = st.sidebar.selectbox("Track Machine (Fabrication No.)", machine_list)
-
-# Metric fix (Error yahan aa raha tha)
-# Agar column nahi milta toh crash hone ke bajaye 0 dikhayega[cite: 1]
-total_machines = filtered_master[machine_col].nunique() if machine_col in filtered_master.columns else 0
 
 # --- DASHBOARD START ---
 st.title("📇 PRIME POWER CRM App")
@@ -79,7 +79,7 @@ else:
 
 st.markdown("---")
 
-# 2) 4-Column Machine Tracker (Displays only when a machine is tracked)
+# 2) 4-Column Tracker (dd-mmm-yy format applied)
 if selected_machine != "All":
     m_data = master[master[machine_col].astype(str) == str(selected_machine)].iloc[0]
     st.subheader(f"🔍 Detailed Tracker: {selected_machine}")
@@ -87,49 +87,55 @@ if selected_machine != "All":
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.info("👤 Customer Info")
-        cols1 = ["CUSTOMER NAME", "Address", "EMAIL ID", "Contact No. 1", "Last Service Date", "Last Service HMR", "Avg. Hrs", "HMR Cal."]
-        for col in cols1: st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
+        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
+        st.write(f"**Address:** {m_data.get('Address', 'N/A')}")
+        st.write(f"**Email:** {m_data.get('EMAIL ID', 'N/A')}")
+        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
+        st.write(f"**Last Service Date:** {format_date(m_data.get('Last Service Date'))}")
+        st.write(f"**Last Service HMR:** {m_data.get('Last Service HMR', 'N/A')}")
+        st.write(f"**Avg. Hrs:** {m_data.get('Avg. Hrs', '0')}")
+        st.write(f"**HMR Cal.:** {m_data.get('HMR Cal.', 'N/A')}")
+
     with c2:
         st.warning("📅 Last Replacement")
-        cols2 = ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]
-        for col in cols2: st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
+        for col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]:
+            st.write(f"**{col}:** {format_date(m_data.get(col))}")
+
     with c3:
         st.success("⏳ LIVE Remaining")
-        cols3 = ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", "LIVE - 3000 Valve kit Remaining Hours"]
-        for col in cols3: st.write(f"**{col}:** {m_data.get(col, '0')}")
+        for col in ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", "LIVE - 3000 Valve kit Remaining Hours"]:
+            st.write(f"**{col}:** {m_data.get(col, '0')}")
+
     with c4:
         st.error("🚨 Next Due Dates")
-        cols4 = ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]
-        for col in cols4: st.write(f"**{col}:** {m_data.get(col, 'N/A')}")
+        for col in ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]:
+            st.write(f"**{col}:** {format_date(m_data.get(col))}")
 else:
-    st.info("Sidebar se koi Machine select karein details dekhne ke liye.")
+    st.info("Sidebar se machine select karein full details ke liye.")
 
 st.markdown("---")
 
-# 3) Recent Service Requests (Always visible, filtered if machine selected)
+# 3) Recent Service Requests (Filtered)
 st.subheader("🛠️ Recent Service Requests")
-svc_fab_col = next((c for c in service.columns if "fabrication" in c.lower()), None)
+svc_fab_col = find_column(service, ["fabrication"])
 service_display = service.copy()
 
 if selected_machine != "All" and svc_fab_col:
     service_display = service_display[service_display[svc_fab_col].astype(str) == str(selected_machine)]
 
 if not service_display.empty:
-    if "Call Logged Date" in service_display.columns:
-        service_display = service_display.sort_values(by="Call Logged Date", ascending=False)
-    
     for _, row in service_display.head(10).iterrows():
-        exp_label = f"📅 {row.get('Call Logged Date','N/A')} | Type: {row.get('Call Type','N/A')} | HMR: {row.get('Call HMR','N/A')}"
-        with st.expander(exp_label):
+        label = f"📅 {format_date(row.get('Call Logged Date'))} | Type: {row.get('Call Type','N/A')} | HMR: {row.get('Call HMR','N/A')}"
+        with st.expander(label):
             st.info(row.get("Service Engineer Comments", "No comments."))
 else:
-    st.info("Koi service record nahi mila.")
+    st.info("Service record nahi mila.")
 
 st.markdown("---")
 
-# 4) FOC Details (Always visible, filtered if machine selected)
+# 4) FOC Details (Filtered)
 st.subheader("📦 FOC Details")
-foc_fab_col = next((c for c in foc.columns if "fabrication" in c.lower()), None)
+foc_fab_col = find_column(foc, ["fabrication"])
 foc_display = foc.copy()
 
 if selected_machine != "All" and foc_fab_col:
@@ -141,4 +147,4 @@ existing_foc = [c for c in foc_cols if c in foc_display.columns]
 if not foc_display.empty:
     st.dataframe(foc_display[existing_foc], use_container_width=True)
 else:
-    st.info("Koi FOC record nahi mila.")
+    st.info("FOC record nahi mila.")

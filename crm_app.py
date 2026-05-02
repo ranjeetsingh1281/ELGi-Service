@@ -106,14 +106,16 @@ st.markdown('<h1 style="color:#38bdf8; font-size:3rem; font-weight:800;">PRIME P
 st.markdown("---")
 
 # 1) Metrics Section - FIXED TYPO HERE (kpi1 instead of kpii1)
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
 kpi1.metric("👤 Total Customers", f_master[cust_col].nunique())
 kpi2.metric("⚙️ Total Machines", f_master[mach_col].nunique())
 
 if "Unit Status" in f_master.columns:
     status = f_master["Unit Status"].value_counts()
-    kpi3.metric("🟢 Running Units", status.get("Running", 0))
-    kpi4.metric("🔴 Breakdown Units", status.get("Breakdown", 0))
+    kpi3.metric("🚚 Active", status_counts.get("Active", 0))
+    kpi4.metric("🗑️ Scraped", status_counts.get("Scraped", 0))
+    kpi5.metric("🚔 Shifted", status_counts.get("Shifted", 0))
+    kpi6.metric("❌ Sold", status_counts.get("Sold", 0))
 
 st.markdown("---")
 

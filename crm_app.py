@@ -5,52 +5,58 @@ from io import BytesIO
 # --- MODERN PAGE CONFIG ---
 st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_sidebar_state="expanded")
 
-# --- FIXED GLASS UI CSS (FOR VISIBILITY) ---
+# --- SIDEBAR FONT VISIBILITY FIX ---
 st.markdown("""
     <style>
-    /* Global Background */
+    /* Global Background & Dark Mode feel */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc !important; /* Force white text */
+        color: #f8fafc !important;
     }
     
-    /* Global Text Color Fix for all standard elements */
-    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+    /* Sidebar Background (Glassmorphism) */
+    [data-testid="stSidebar"] {
+        background-color: rgba(15, 23, 42, 0.95) !important;
+        backdrop-filter: blur(10px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Sidebar Labels (Category, Customer, Fabrication No.) */
+    /* Ise white rakhenge kyunki sidebar background dark hai */
+    [data-testid="stSidebar"] label p {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+    }
+
+    /* Sidebar Dropdown Input Text (Inside white boxes) */
+    /* Yeh important hai: Box white hai toh text black hona chahiye */
+    [data-testid="stSidebar"] div[data-baseweb="select"] div {
+        color: #0f172a !important; /* Deep Dark Blue/Black */
+        font-weight: 600 !important;
+    }
+
+    /* Sidebar Icons & Titles */
+    [data-testid="stSidebar"] h3 {
+        color: #38bdf8 !important;
+        font-weight: 800 !important;
+    }
+
+    /* Global Text Fix for main dashboard */
+    h1, h2, h4, h5, p, span {
         color: #f8fafc !important;
     }
 
-    /* Sidebar Labels Fix */
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: #ffffff !important;
-        font-weight: 600;
-    }
-
-    /* Glassmorphism KPI Cards */
-    div[data-testid="stMetricValue"] > div {
-        color: #38bdf8 !important; /* Bright Blue for numbers */
-        font-weight: 800;
-    }
-    div[data-testid="stMetricLabel"] > div > p {
-        color: #94a3b8 !important; /* Light grey for labels */
-    }
-
-    /* 4-Column Tracker Text Fix */
-    .stVerticalBlock div[style*="background"] p {
-        color: #ffffff !important;
-    }
-
-    /* Expander Text Color */
-    .streamlit-expanderHeader p {
-        color: #ffffff !important;
-    }
-
-    /* Modern Glass Look for Metrics */
+    /* Metric Cards Styling */
     [data-testid="stMetric"] {
         background: rgba(255, 255, 255, 0.07) !important;
         backdrop-filter: blur(10px);
         border-radius: 12px;
-        padding: 15px;
         border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    div[data-testid="stMetricValue"] > div {
+        color: #38bdf8 !important;
+        font-weight: 800;
     }
     </style>
     """, unsafe_allow_html=True)

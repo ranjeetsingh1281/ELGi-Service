@@ -126,24 +126,28 @@ if sel_mach != "All":
     
     t1, t2, t3, t4 = st.columns(4)
     with t1:
-        st.info("👤 Customer Info")
-        st.write(f"**Name:** {m_data.get('CUSTOMER NAME','N/A')}")
-        st.write(f"**Contact:** {m_data.get('Contact No. 1','N/A')}")
-        st.write(f"**Last Service:** {format_date(m_data.get('Last Service Date'))}")
+        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
+        st.write(f"**Address:** {m_data.get('Address', 'N/A')}")
+        st.write(f"**Email:** {m_data.get('EMAIL ID', 'N/A')}")
+        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
+        st.write(f"**Last Service Date:** {format_date(m_data.get('Last Service Date'))}")
+        st.write(f"**Last Service HMR:** {m_data.get('Last Service HMR', 'N/A')}")
+        st.write(f"**Avg. Hrs:** {m_data.get('Avg. Hrs', '0')}")
+        st.write(f"**HMR Cal.:** {m_data.get('HMR Cal.', 'N/A')}")
     
     with t2:
         st.warning("📅 Last Replacement")
-        for r_col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date"]:
+        for r_col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]:
             st.write(f"**{r_col}:** {format_date(m_data.get(r_col))}")
             
     with t3:
         st.success("⏳ LIVE Remaining")
-        for l_col in ["LIVE - Oil remaining", "LIVE - Separator remaining"]:
+        for l_col in ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", "LIVE - 3000 Valve kit Remaining Hours"]:
             st.write(f"**{l_col}:** {m_data.get(l_col, '0')}")
             
     with t4:
         st.error("🚨 Next Due Dates")
-        for d_col in ["OIL DUE DATE", "AOS DUE DATE"]:
+        for d_col in ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]:
             st.write(f"**{d_col}:** {format_date(m_data.get(d_col))}")
 
     st.markdown("---")

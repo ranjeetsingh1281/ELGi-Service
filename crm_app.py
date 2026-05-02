@@ -112,16 +112,16 @@ st.markdown('<h1 style="color:#38bdf8; font-size:3rem; font-weight:800; margin-b
 st.markdown("---")
 
 # 1) Animated KPI Cards
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-col1.metric("👥 Total Customers", filtered_master[customer_col].nunique())
-col2.metric("🏗️ Total Machines", filtered_master[machine_col].nunique())
+kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
+kpi1.metric("👥 Total Customers", filtered_master[customer_col].nunique())
+kpi2.metric("🏗️ Total Machines", filtered_master[machine_col].nunique())
 
 if "Unit Status" in f_master.columns:
     status = f_master["Unit Status"].value_counts()
-    col3.metric("🚚 Active", status_counts.get("Active", 0))
-    col4.metric("🗑️ Scraped", status_counts.get("Scraped", 0))
-    col5.metric("🚔 Shifted", status_counts.get("Shifted", 0))
-    col6.metric("❌ Sold", status_counts.get("Sold", 0))
+    kpi3.metric("🚚 Active", status_counts.get("Active", 0))
+    kpi4.metric("🗑️ Scraped", status_counts.get("Scraped", 0))
+    kpi5.metric("🚔 Shifted", status_counts.get("Shifted", 0))
+    kpi6.metric("❌ Sold", status_counts.get("Sold", 0))
 
 # 2) Warranty Type Count
 st.markdown("#### 🛡️ Warranty Breakdown")

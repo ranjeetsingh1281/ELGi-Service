@@ -72,13 +72,16 @@ with st.sidebar:
     # Dono logos ko side-by-side dikhane ke liye columns
     log_col1, log_col2 = st.columns(2)
     
-    with log_col1:
-        # Prime Power Logo
-        st.image("input_file_1.png", use_container_width=True)
-    
-    with log_col2:
-        # ELGi Logo
-        st.image("input_file_0.png", use_container_width=True)
+    try:
+        with log_col1:
+            # Prime Power Logo
+            st.image("input_file_1.png", use_container_width=True)
+        
+        with log_col2:
+            # ELGi Logo
+            st.image("input_file_0.png", use_container_width=True)
+    except Exception as e:
+        st.warning("Logo files missing! Please upload 'input_file_1.png' and 'input_file_0.png' to your folder.")
         
 with st.sidebar:
     st.markdown("### 🛠️ Control Panel")

@@ -6,50 +6,47 @@ from io import BytesIO
 # Layout ko "centered" rakha hai taaki mobile par horizontal scrolling na ho
 st.set_page_config(page_title="PRIME POWER Mobile CRM", layout="centered", initial_sidebar_state="collapsed")
 
-# --- 2. CRIMSON GLASS UI & MOBILE CSS ---
+# --- FINAL VISIBILITY FIX FOR MOBILE CRIMSON UI ---
 st.markdown("""
     <style>
-    /* Crimson Background */
+    /* 1. Global Text Force White */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #8b0000 0%, #dc143c 100%);
-        color: #f8fafc !important;
     }
     
-    [data-testid="stSidebar"] {
-        background-color: rgba(60, 0, 0, 0.98) !important;
-        backdrop-filter: blur(15px);
+    /* Force ALL text to be white/bright light grey */
+    h1, h2, h3, h4, p, span, label, li {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Shadow for better depth */
     }
 
-    /* Mobile Text Adjustments */
-    h1 { font-size: 1.8rem !important; text-align: center; }
-    h3, h4 { font-size: 1.2rem !important; }
-
-    /* Responsive KPI Metrics */
-    [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.12) !important;
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        padding: 10px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        margin-bottom: 10px;
+    /* 2. Metric Cards Visibility Fix */
+    div[data-testid="stMetricValue"] > div {
+        color: #00ffff !important; /* Bright Cyan for Numbers - High Contrast */
+        font-weight: 800 !important;
+        font-size: 2.2rem !important;
     }
     
-    /* Sidebar Input Text Visibility */
+    div[data-testid="stMetricLabel"] > div > p {
+        color: #f8fafc !important; /* Off-white for labels */
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* 3. Sidebar Visibility Fix */
+    [data-testid="stSidebar"] label p {
+        color: #ffffff !important;
+    }
+    
+    /* 4. Info/Success/Warning Box Text Fix */
+    .stAlert p {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+
+    /* 5. Selectbox Input Fix (Inside white boxes) */
     [data-testid="stSidebar"] div[data-baseweb="select"] div {
-        color: #0f172a !important;
-        font-size: 0.9rem !important;
-    }
-
-    /* Hide redundant elements on mobile for cleaner look */
-    footer {visibility: hidden;}
-    
-    /* 4-Column Tracker Mobile Stack */
-    @media (max-width: 640px) {
-        .stMetric { width: 100% !important; }
-        .stVerticalBlock div[style*="background"] { 
-            margin-bottom: 15px !important; 
-            padding: 15px !important;
-        }
+        color: #000000 !important; /* Dark text inside white input boxes */
     }
     </style>
     """, unsafe_allow_html=True)

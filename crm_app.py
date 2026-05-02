@@ -9,7 +9,7 @@ st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_side
 st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        background: linear-gradient(135deg, #DC143C 0%, #1e293b 100%);
         color: #f8fafc !important;
     }
     [data-testid="stSidebar"] {

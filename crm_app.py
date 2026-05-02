@@ -120,14 +120,16 @@ with st.sidebar:
 st.markdown('<h1 class="main-title">PRIME POWER CRM PRO</h1>', unsafe_allow_html=True)
 
 # 1) Animated KPI Cards
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 col1.metric("Total Customers", filtered_master[customer_col].nunique())
 col2.metric("Total Machines", filtered_master[machine_col].nunique())
 
 if "Unit Status" in filtered_master.columns:
     status_counts = filtered_master["Unit Status"].value_counts()
-    col3.metric("🟢 Running Units", status_counts.get("Running", 0))
-    col4.metric("🔴 Breakdown Units", status_counts.get("Breakdown", 0))
+    col3.metric("🚚 Active", status_counts.get("Active", 0))
+    col4.metric("🗑️ Scraped", status_counts.get("Scraped", 0))
+    col5.metric("🚔 Shifted", status_counts.get("Shifted", 0))
+    col6.metric("❌ Sold", status_counts.get("Sold", 0))
 
 st.markdown("---")
 

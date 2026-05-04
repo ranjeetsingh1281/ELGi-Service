@@ -218,3 +218,40 @@ if sel_mach != "All":
                         st.info(row.get("Failure Material Details", "No description available."))
         else:
             st.info("Is machine ke liye koi FOC record nahi mila.")
+
+# --- EXCEL REPORT EXPORT LOGIC ---
+    st.markdown("---")
+    st.subheader("📊 Export FOC Report")
+    
+    if not foc_display.empty:
+        # Report ke liye columns select karna
+        # Note: 'Qty' column agar aapki sheet mein alag naam se hai toh usey check karlein
+        report_cols = ["Created On", "FOC Number", "Customer Name", "Failure Material Details", "Part Code", "ELGI IVOICE NO."]
+        
+        # Check karna ki saare columns exist karte hain
+        existing_report_cols = [c for c in report_cols if c in foc_display.columns]
+        
+        # Filtered data for report
+        export_df = foc_display[existing_report_cols].copy()
+        
+        # Excel File generate karne ka function
+        def to_excel(df):
+            output = BytesIO()
+            writer = pd.ExcelWriter(output, engine='xlsxwriter')
+            df.to_excel(writer, index=False, sheet_name='FOC_Report')
+            writer.close()
+            processed_data = output.getvalue()
+            return processed_data
+
+        excel_data = to_excel(export_df)
+        
+        # Download Button
+        file_name = f"FOC_Report_{sel_cust}_{sel_mach}.xlsx"
+        st.download_button(
+            label="📥 Download FOC Excel Report",
+            data=excel_data,
+            file_name=file_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info("Report banane ke liye koi data available nahi hai.")

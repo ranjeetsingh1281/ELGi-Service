@@ -234,12 +234,12 @@ if sel_mach != "All":
         # Filtered data for report
         export_df = foc_display[existing_report_cols].copy()
         
-        # Excel File generate karne ka function
+        # Updated Excel File function without xlsxwriter
         def to_excel(df):
             output = BytesIO()
-            writer = pd.ExcelWriter(output, engine='xlsxwriter')
-            df.to_excel(writer, index=False, sheet_name='FOC_Report')
-            writer.close()
+            # engine='xlsxwriter' ko hata kar default engine use karein
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='FOC_Report')
             processed_data = output.getvalue()
             return processed_data
 

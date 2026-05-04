@@ -183,12 +183,38 @@ if sel_mach != "All":
                 with st.expander(f"📅 {format_date(row.get('Call Logged Date'))} | {row.get('Call HMR')} | {row.get('Call Type','N/A')}"):
                     st.info(row.get("Service Engineer Comments", "No comments."))
     
-    # 4) FOC Details
-    st.subheader("📦 FOC Details")
-    foc_fab = find_col(foc, ["fabrication"])
-    if foc_fab:
-        f_disp = foc[foc[foc_fab].astype(str) == str(sel_mach)]
-        if not f_disp.empty:
-            st.dataframe(f_disp.head(10), use_container_width=True)
-else:
-    st.info("👋 Welcome! Please select a machine from the sidebar to view full intelligence.")
+    # 4) FOC Details (Mobile & Desktop Optimized with Expanders)
+    st.subheader("📦 FOC Status Tracker")
+    foc_fab_col = find_col(foc, ["fabrication"])
+    
+    if foc_fab_col:
+        # Selected machine ke liye FOC filter karna
+        foc_display = foc[foc[foc_fab_col].astype(str) == str(sel_mach)].copy()
+        
+        if not foc_display.empty:
+            # Latest FOC pehle dikhane ke liye sorting
+            if "Created On" in foc_display.columns:
+                foc_display = foc_display.sort_values("Created On", ascending=False)
+            
+            for _, row in foc_display.iterrows():
+                # Header labels setup
+                foc_no = row.get("FOC Number", "N/A")
+                foc_date = format_date(row.get("Created On"))
+                # FOC Status column detect karna
+                foc_status_col = find_col(foc, ["foc status", "status"])
+                foc_status = row.get(foc_status_col, "In Process") if foc_status_col else "N/A"
+                
+                # Main Expander Label
+                foc_label = f"📦 FOC: {foc_no} | 📅 {foc_date} | 🏷️ Status: {foc_status}"
+                
+                with st.expander(foc_label):
+                    # Internal details grid layout
+                    fc1, fc2 = st.columns(2)
+                    with fc1:
+                        st.write(f"**Work Order Number:** {row.get('Work Order Number', 'N/A')}")
+                        st.write(f"**Part Code:** {row.get('Part Code', 'N/A')}")
+                    with fc2:
+                        st.write(f"**Failed Material Description:**")
+                        st.info(row.get("Failure Material Details", "No description available."))
+        else:
+            st.info("Is machine ke liye koi FOC record nahi mila.")

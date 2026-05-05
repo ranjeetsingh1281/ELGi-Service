@@ -114,18 +114,17 @@ with st.sidebar:
             
             st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
 
-# --- 1) Metrics & Charts Section (Final Fix with Scraped Count & Proper Graph) ---
+# --- 1) Metrics & Charts Section (TOTAL FIX) ---
 if sel_mach == "All":
-    # 5-Column Metrics Row (Added Scraped Count)
+    # 5-Column Metrics Row
     kpi_cols = st.columns(5)
-    
     kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
     kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
     
     if "Unit Status" in f_master.columns:
         status_map = f_master["Unit Status"].value_counts()
         kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
-        kpi_cols[3].metric("🗑️ Scraped", status_map.get("Scraped", 0)) # Scraped count added here
+        kpi_cols[3].metric("🗑️ Scraped", status_map.get("Scraped", 0))
     
     if warr_type_col in f_master.columns:
         w_count = f_master[warr_type_col].nunique()
@@ -133,42 +132,57 @@ if sel_mach == "All":
 
     st.markdown("---")
 
-    # --- BAR CHART FIX (EXACT COLUMN: "Warranty Type") ---
+    # --- CHARTS SECTION (NameError Fix) ---
+    # Yeh line define hona zaroori hai
+    c_col1, c_col2 = st.columns(2)
+
+    # 1. BAR CHART (Warranty vs Non-Warranty)
     with c_col1:
         st.subheader("📊 Warranty vs Non-Warranty")
-        
-        # Exact column name specify karna
         target_col = "Warranty Type"
         
         if target_col in f_master.columns:
             chart_df = f_master.copy()
-            
-            # Logic: Agar cell empty hai ya 'Non-Warranty' likha hai toh usey Red bar mein daalein
+            # Logic for categorization
             chart_df['W_Status'] = chart_df[target_col].apply(
                 lambda x: "Non-Warranty" if pd.isna(x) or str(x).strip() == "" or str(x).lower() in ["non-warranty", "nan", "out of warranty"] 
                 else "Warranty"
             )
             
-            # Count calculate karke dono categories ko force karna
             w_counts = chart_df['W_Status'].value_counts().reindex(["Warranty", "Non-Warranty"], fill_value=0).reset_index()
             w_counts.columns = ['Status', 'Count']
             
-            # Plotly Graph
             fig_bar = px.bar(w_counts, x='Status', y='Count', color='Status',
                              color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
                              text_auto=True)
-            
-            fig_bar.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color="white", 
-                height=350,
-                xaxis_title=None,
-                yaxis_title="No. of Units"
-            )
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, showlegend=False)
             st.plotly_chart(fig_bar, use_container_width=True)
-        else:
-            st.error(f"Excel mein '{target_col}' naam ka column nahi mila!")
+
+    # 2. PIE CHART (Expiry Analysis)
+    with c_col2:
+        st.subheader("⭕ Expiry Analysis")
+        if warr_exp_col in f_master.columns:
+            today = datetime.now()
+            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
+            
+            od = f_master[f_master[warr_exp_col] < today].shape[0]
+            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
+            
+            nxt_month_date = today + pd.DateOffset(months=1)
+            nxt_m = f_master[(f_master[warr_exp_col].dt.month == nxt_month_date.month) & (f_master[warr_exp_col].dt.year == nxt_month_date.year)].shape[0]
+            
+            pie_df = pd.DataFrame({
+                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
+                "Count": [od, curr_m, nxt_m]
+            })
+            
+            fig_pie = px.pie(pie_df, values='Count', names='Category', 
+                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
+                             hole=0.4)
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"))
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    st.markdown("---")
     
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error

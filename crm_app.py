@@ -132,6 +132,24 @@ if sel_mach == "All":
 
     st.markdown("---")
 
+    # --- 1) Metrics & Charts Section (TOTAL FIX) ---
+if sel_mach == "All":
+    # 5-Column Metrics Row
+    kpi_cols = st.columns(5)
+    kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
+    kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
+    
+    if "Unit Status" in f_master.columns:
+        status_map = f_master["Unit Status"].value_counts()
+        kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
+        kpi_cols[3].metric("🗑️ Scraped", status_map.get("Scraped", 0))
+    
+    if warr_type_col in f_master.columns:
+        w_count = f_master[warr_type_col].nunique()
+        kpi_cols[4].metric("🛡️ Warranty Types", w_count)
+
+    st.markdown("---")
+
     # --- CHARTS SECTION (NameError Fix) ---
     # Yeh line define hona zaroori hai
     c_col1, c_col2 = st.columns(2)
@@ -158,6 +176,31 @@ if sel_mach == "All":
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, showlegend=False)
             st.plotly_chart(fig_bar, use_container_width=True)
 
+    # 2. PIE CHART (Expiry Analysis)
+    with c_col2:
+        st.subheader("⭕ Expiry Analysis")
+        if warr_exp_col in f_master.columns:
+            today = datetime.now()
+            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
+            
+            od = f_master[f_master[warr_exp_col] < today].shape[0]
+            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
+            
+            nxt_month_date = today + pd.DateOffset(months=1)
+            nxt_m = f_master[(f_master[warr_exp_col].dt.month == nxt_month_date.month) & (f_master[warr_exp_col].dt.year == nxt_month_date.year)].shape[0]
+            
+            pie_df = pd.DataFrame({
+                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
+                "Count": [od, curr_m, nxt_m]
+            })
+            
+            fig_pie = px.pie(pie_df, values='Count', names='Category', 
+                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
+                             hole=0.4)
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"))
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    st.markdown("---")
     # 2. PIE CHART (Expiry Analysis)
     with c_col2:
         st.subheader("⭕ Expiry Analysis")

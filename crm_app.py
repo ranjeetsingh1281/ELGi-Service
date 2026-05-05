@@ -114,40 +114,52 @@ with st.sidebar:
             
             st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
 
-# --- 1) Metrics & Charts Section (Indentation Fixed) ---
+# --- 1) Metrics & Charts Section (Final Fix with Scraped Count & Proper Graph) ---
 if sel_mach == "All":
-    # Top Row Metrics
-    kpi_cols = st.columns(4)
+    # 5-Column Metrics Row (Added Scraped Count)
+    kpi_cols = st.columns(5)
+    
     kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
     kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
     
     if "Unit Status" in f_master.columns:
         status_map = f_master["Unit Status"].value_counts()
         kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
+        kpi_cols[3].metric("🗑️ Scraped", status_map.get("Scraped", 0)) # Scraped count added here
     
     if warr_type_col in f_master.columns:
         w_count = f_master[warr_type_col].nunique()
-        kpi_cols[3].metric("🛡️ Warranty Types", w_count)
+        kpi_cols[4].metric("🛡️ Warranty Types", w_count)
 
     st.markdown("---")
 
-    # --- CHARTS SECTION (Side-by-Side) ---
+    # --- CHARTS SECTION ---
     c_col1, c_col2 = st.columns(2)
 
     with c_col1:
         st.subheader("📊 Warranty vs Non-Warranty")
         if warr_type_col in f_master.columns:
-            # Logic: Categorize into Warranty vs Non-Warranty
-            f_master['W_Status'] = f_master[warr_type_col].apply(
-                lambda x: "Non-Warranty" if str(x).lower() in ["non-warranty", "nan", "out of warranty"] else "Warranty"
+            # Proper logic to distinguish Warranty vs Non-Warranty
+            chart_df = f_master.copy()
+            # Yahan hum check kar rahe hain ki column empty hai ya 'Non-Warranty' likha hai
+            chart_df['W_Status'] = chart_df[warr_type_col].apply(
+                lambda x: "Non-Warranty" if pd.isna(x) or str(x).lower() in ["non-warranty", "nan", "out of warranty", ""] else "Warranty"
             )
-            w_data = f_master['W_Status'].value_counts().reset_index()
+            w_data = chart_df['W_Status'].value_counts().reset_index()
             w_data.columns = ['Status', 'Count']
             
+            # Plotly bar chart with both categories
             fig_bar = px.bar(w_data, x='Status', y='Count', color='Status',
                              color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
                              text_auto=True)
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
+            fig_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color="white", 
+                height=350,
+                xaxis_title="Machine Status",
+                yaxis_title="No. of Units"
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with c_col2:
@@ -156,10 +168,10 @@ if sel_mach == "All":
             today = datetime.now()
             f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
             
-            # Count logic for Pie Chart
             od = f_master[f_master[warr_exp_col] < today].shape[0]
             curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
             
+            # Next Month Logic
             next_m_val = (today.month % 12) + 1
             next_m_yr = today.year + (1 if today.month == 12 else 0)
             nxt_m = f_master[(f_master[warr_exp_col].dt.month == next_m_val) & (f_master[warr_exp_col].dt.year == next_m_yr)].shape[0]

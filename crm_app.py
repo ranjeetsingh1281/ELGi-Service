@@ -139,55 +139,32 @@ if sel_mach == "All":
     with c_col1:
         st.subheader("📊 Warranty vs Non-Warranty")
         if warr_type_col in f_master.columns:
-            # Proper logic to distinguish Warranty vs Non-Warranty
+            # Final logic to ensure both categories show up
             chart_df = f_master.copy()
-            # Yahan hum check kar rahe hain ki column empty hai ya 'Non-Warranty' likha hai
+            
+            # 1. Classification logic (Fixing empty or 'nan' values)
             chart_df['W_Status'] = chart_df[warr_type_col].apply(
                 lambda x: "Non-Warranty" if pd.isna(x) or str(x).lower() in ["non-warranty", "nan", "out of warranty", ""] else "Warranty"
             )
-            w_data = chart_df['W_Status'].value_counts().reset_index()
-            w_data.columns = ['Status', 'Count']
             
-            # Plotly bar chart with both categories
-            fig_bar = px.bar(w_data, x='Status', y='Count', color='Status',
+            # 2. Count calculate karna aur "Reindex" karna taaki dono bars fix rahein
+            w_counts = chart_df['W_Status'].value_counts().reindex(["Warranty", "Non-Warranty"], fill_value=0).reset_index()
+            w_counts.columns = ['Status', 'Count']
+            
+            # 3. Bar Chart with static colors
+            fig_bar = px.bar(w_counts, x='Status', y='Count', color='Status',
                              color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
                              text_auto=True)
+            
             fig_bar.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
                 font_color="white", 
                 height=350,
-                xaxis_title="Machine Status",
+                xaxis_title=None,
                 yaxis_title="No. of Units"
             )
             st.plotly_chart(fig_bar, use_container_width=True)
-
-    with c_col2:
-        st.subheader("⭕ Expiry Analysis")
-        if warr_exp_col in f_master.columns:
-            today = datetime.now()
-            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
-            
-            od = f_master[f_master[warr_exp_col] < today].shape[0]
-            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
-            
-            # Next Month Logic
-            next_m_val = (today.month % 12) + 1
-            next_m_yr = today.year + (1 if today.month == 12 else 0)
-            nxt_m = f_master[(f_master[warr_exp_col].dt.month == next_m_val) & (f_master[warr_exp_col].dt.year == next_m_yr)].shape[0]
-            
-            pie_df = pd.DataFrame({
-                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
-                "Count": [od, curr_m, nxt_m]
-            })
-            
-            fig_pie = px.pie(pie_df, values='Count', names='Category', 
-                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
-                             hole=0.4)
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-    st.markdown("---")
     
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error

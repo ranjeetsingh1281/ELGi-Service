@@ -171,7 +171,7 @@ if sel_mach == "All":
             
             fig_cat = px.bar(cat_warr_df, x='Category', y='Count', color='Status',
                              barmode='group',
-                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
+                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#3F0FF1'},
                              text_auto=True)
             
             fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 

@@ -39,6 +39,20 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- YAHAN PASTE KAREIN (Approx Line 70-80) ---
+head_col1, head_col2 = st.columns([0.8, 0.2])
+
+with head_col1:
+    st.markdown('<h1 style="color:#ffffff; font-size:2.5rem; font-weight:800; margin-bottom:0;">PRIME POWER CRM PRO</h1>', unsafe_allow_html=True)
+
+with head_col2:
+    st.write("") 
+    if st.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
+
+st.markdown("---")
+
 @st.cache_data
 def load_data():
     try:
@@ -87,7 +101,9 @@ with st.sidebar:
             st.image("input_file_2.png", use_container_width=True)
     except Exception as e:
         st.warning("Logo files missing! Please upload 'input_file_2.png' and 'input_file_0.png' to your folder.")
-        
+
+st.markdown("---")
+    st.markdown("### 📊 Monthly Intelligence")
 with st.sidebar:
     st.markdown("### 🛠️ Control Panel")
     
@@ -137,6 +153,19 @@ if "Unit Status" in f_master.columns:
     kpi5.metric("🚔 Shifted", status.get("Shifted", 0))
     kpi6.metric("❌ Sold", status.get("Sold", 0))
 
+# Naya Warranty Type Count
+if warr_type_col in f_master.columns:
+    w_count = f_master[warr_type_col].nunique()
+    kpi_cols[3].metric("🛡️ Warranty Types", w_count)
+
+# Warranty ka detailed breakdown metrics ke thik niche
+if warr_type_col in f_master.columns:
+    st.markdown("#### 🛡️ Warranty Breakdown Details")
+    w_breakdown = f_master[warr_type_col].value_counts()
+    w_sub_cols = st.columns(len(w_breakdown) if len(w_breakdown) > 0 else 1)
+    for i, (name, val) in enumerate(w_breakdown.items()):
+        w_sub_cols[i % len(w_sub_cols)].write(f"**{name}:** `{val}`")
+        
 st.markdown("---")
 
 # 2) 4-Column Tracker (When Machine Selected)

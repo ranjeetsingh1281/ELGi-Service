@@ -135,20 +135,25 @@ if warr_type_col in f_master.columns:
 
 st.markdown("---")
 
-# --- CHARTS ROW ---
+# --- CHARTS SECTION ---
+    # Dono charts ko side-by-side rakhne ke liye columns
     c_col1, c_col2 = st.columns(2)
 
     with c_col1:
         st.subheader("📊 Warranty vs Non-Warranty")
         if warr_type_col in f_master.columns:
-            # Warranty vs Non-Warranty logic
-            w_data = f_master[warr_type_col].apply(lambda x: "Non-Warranty" if str(x).lower() in ["non-warranty", "out of warranty", "nan"] else "Warranty").value_counts().reset_index()
-            w_data.columns = ['Status', 'Count']
-            fig1 = px.bar(w_data, x='Status', y='Count', color='Status', 
-                          color_discrete_map={'Warranty': '#00ff00', 'Non-Warranty': '#ff0000'},
-                          text_auto=True)
-            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
-            st.plotly_chart(fig1, use_container_width=True)
+            # Logic to count Warranty vs Non-Warranty
+            f_master['W_Status'] = f_master[warr_type_col].apply(
+                lambda x: "Non-Warranty" if str(x).lower() in ["non-warranty", "nan", "out of warranty"] else "Warranty"
+            )
+            w_vs_nw = f_master['W_Status'].value_counts().reset_index()
+            w_vs_nw.columns = ['Status', 'Count']
+            
+            fig_bar = px.bar(w_vs_nw, x='Status', y='Count', color='Status',
+                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
+                             text_auto=True)
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
     with c_col2:
         st.subheader("⭕ Expiry Analysis")
@@ -156,27 +161,25 @@ st.markdown("---")
             today = datetime.now()
             f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
             
-            overdue = f_master[f_master[warr_exp_col] < today].shape[0]
-            curr_month = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
+            od = f_master[f_master[warr_exp_col] < today].shape[0]
+            curr = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
             
-            # Next Month Logic
-            next_month = (today.month % 12) + 1
-            next_month_year = today.year + (1 if today.month == 12 else 0)
-            next_due = f_master[(f_master[warr_exp_col].dt.month == next_month) & (f_master[warr_exp_col].dt.year == next_month_year)].shape[0]
+            next_m = (today.month % 12) + 1
+            next_y = today.year + (1 if today.month == 12 else 0)
+            nxt = f_master[(f_master[warr_exp_col].dt.month == next_m) & (f_master[warr_exp_col].dt.year == next_y)].shape[0]
             
-            pie_data = pd.DataFrame({
+            pie_df = pd.DataFrame({
                 "Category": ["Overdue", "Current Month Due", "Next Month Due"],
-                "Count": [overdue, curr_month, next_due]
+                "Count": [od, curr, nxt]
             })
             
-            fig2 = px.pie(pie_data, values='Count', names='Category', 
-                          color_discrete_sequence=['#ff4b4b', '#fbc02d', '#1e88e5'],
-                          hole=0.4)
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, showlegend=True)
-            st.plotly_chart(fig2, use_container_width=True)
+            fig_pie = px.pie(pie_df, values='Count', names='Category', 
+                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
+                             hole=0.4)
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
+            st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown("---")
-
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error
 

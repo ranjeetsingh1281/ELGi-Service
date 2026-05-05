@@ -187,35 +187,7 @@ if sel_mach != "All":
         st.error("Service sheet mein 'Fabrication' column nahi mila.")
         
     st.markdown("---")
-    # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
-    st.markdown("---")
-    st.subheader("🛠️ Recent Service Requests")
-    
-    # Column detection for Service file
-    svc_fab = find_col(service, ["fabrication", "fab no"])
-    
-    if svc_fab:
-        # Machine wise service history filter
-        s_display = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
-        
-        if not s_display.empty:
-            # Date sorting taaki latest pehle dikhe
-            if "Call Logged Date" in s_display.columns:
-                s_display = s_display.sort_values("Call Logged Date", ascending=False)
-            
-            # Top 5 records dikhane ke liye loop
-            for _, row in s_display.head(5).iterrows():
-                call_date = format_date(row.get('Call Logged Date'))
-                call_type = row.get('Call Type', 'Service')
-                hmr = row.get('Call HMR', 'N/A')
-                
-                with st.expander(f"📅 {call_date} | HMR: {hmr} | Type: {call_type}"):
-                    st.write(f"**Engineer:** {row.get('Service Engineer Name', 'N/A')}")
-                    st.info(f"**Action Taken:** {row.get('Service Engineer Comments', 'No comments available.')}")
-        else:
-            st.info("Is machine ke liye koi service history available nahi hai.")
-    else:
-        st.error("Service sheet mein 'Fabrication' column nahi mila.")
+  
     # FOC Details
     st.subheader("📦 FOC Status Tracker")
     foc_fab_col = find_col(foc, ["fabrication"])

@@ -142,10 +142,7 @@ if sel_mach == "All":
         kpi_cols[3].metric("🏃 Shift", status_map.get("Shifted", 0))
         kpi_cols[4].metric("🗑️ Scrap", status_map.get("Scraped", 0))
     
-    if warr_type_col in f_master.columns:
-        w_count = f_master[warr_type_col].nunique()
-        kpi_cols[4].metric("🛡️ Warranty Types", w_count)
-
+    
     # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---
     st.markdown("---")
     

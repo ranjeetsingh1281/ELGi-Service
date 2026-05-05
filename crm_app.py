@@ -189,16 +189,37 @@ if sel_mach != "All":
     st.markdown("---")
   
     # FOC Details
+   # --- FIXED FOC TRACKER (GROUPED BY FOC NUMBER) ---
     st.subheader("📦 FOC Status Tracker")
-    foc_fab_col = find_col(foc, ["fabrication"])
+    foc_fab_col = find_col(foc, ["fabrication", "fab no"])
+    
     if foc_fab_col:
-        foc_display = foc[foc[foc_fab_col].astype(str) == str(sel_mach)].copy()
-        if not foc_display.empty:
-            for _, row in foc_display.iterrows():
-                with st.expander(f"📦 FOC: {row.get('FOC Number')} | Status: {row.get('Status', 'In Process')}"):
-                    st.write(f"**Part:** {row.get('Part Code')}")
-                    st.info(row.get("Failure Material Details", "No details."))
-        else: st.info("No FOC Records.")
+        f_display = foc[foc[foc_fab_col].astype(str) == str(sel_mach)].copy()
+        
+        if not f_display.empty:
+            # FOC Number ke hisaab se group banana taaki duplicate headers na dikhein
+            grouped = f_display.groupby("FOC Number")
+            
+            # Latest FOC pehle dikhane ke liye (Based on first entry of group)
+            sorted_groups = sorted(grouped, key=lambda x: str(x[1]["Created On"].iloc[0]) if "Created On" in x[1].columns else "", reverse=True)
+
+            for foc_no, group_df in sorted_groups:
+                first_row = group_df.iloc[0]
+                f_date = format_date(first_row.get("Created On"))
+                f_status_col = find_col(foc, ["foc status", "status"])
+                f_status = first_row.get(f_status_col, "In Process") if f_status_col else "N/A"
+                
+                # Header mein sirf ek baar FOC Details dikhegi
+                with st.expander(f"📦 FOC: {foc_no} | 📅 {f_date} | 🏷️ Status: {f_status}"):
+                    st.write(f"**Work Order:** {first_row.get('Work Order Number', 'N/A')}")
+                    st.markdown("---")
+                    # Group ke andar ke saare parts ki list
+                    for _, row in group_df.iterrows():
+                        st.write(f"🔹 **Part:** {row.get('Part Code', 'N/A')} | **Qty:** {row.get('Qty', '1')}")
+                        st.caption(f"Details: {row.get('Failure Material Details', 'No description')}")
+                        st.markdown("---")
+        else:
+            st.info("Is machine ke liye koi FOC record nahi mila.")
 
 # --- EXPORT REPORT ---
 if not foc_display.empty:

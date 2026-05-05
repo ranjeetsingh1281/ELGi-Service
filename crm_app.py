@@ -112,44 +112,37 @@ with st.sidebar:
             
             st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
 
-# --- MAIN DASHBOARD METRICS ---
-kpi_cols = st.columns(6)
-kpi_cols[0].metric("👤 Customers", f_master[cust_col].nunique())
-kpi_cols[1].metric("⚙️ Machines", f_master[mach_col].nunique())
+# --- 1) Metrics & Charts Section (Indentation Fixed) ---
+if sel_mach == "All":
+    # Top Row Metrics
+    kpi_cols = st.columns(4)
+    kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
+    kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
+    
+    if "Unit Status" in f_master.columns:
+        status_map = f_master["Unit Status"].value_counts()
+        kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
+    
+    if warr_type_col in f_master.columns:
+        w_count = f_master[warr_type_col].nunique()
+        kpi_cols[3].metric("🛡️ Warranty Types", w_count)
 
-if "Unit Status" in f_master.columns:
-    status = f_master["Unit Status"].value_counts()
-    kpi_cols[2].metric("🚚 Active", status.get("Active", 0))
-    kpi_cols[3].metric("🗑️ Scraped", status.get("Scraped", 0))
+    st.markdown("---")
 
-if warr_type_col in f_master.columns:
-    w_count = f_master[warr_type_col].nunique()
-    kpi_cols[4].metric("🛡️ Warranty Types", w_count)
-
-if warr_type_col in f_master.columns:
-    st.markdown("#### 🛡️ Warranty Breakdown")
-    w_breakdown = f_master[warr_type_col].value_counts()
-    wb_cols = st.columns(len(w_breakdown) if len(w_breakdown) > 0 else 1)
-    for i, (name, val) in enumerate(w_breakdown.items()):
-        wb_cols[i % len(wb_cols)].write(f"**{name}:** `{val}`")
-
-st.markdown("---")
-
-# --- CHARTS SECTION ---
-    # Dono charts ko side-by-side rakhne ke liye columns
+    # --- CHARTS SECTION (Side-by-Side) ---
     c_col1, c_col2 = st.columns(2)
 
     with c_col1:
         st.subheader("📊 Warranty vs Non-Warranty")
         if warr_type_col in f_master.columns:
-            # Logic to count Warranty vs Non-Warranty
+            # Logic: Categorize into Warranty vs Non-Warranty
             f_master['W_Status'] = f_master[warr_type_col].apply(
                 lambda x: "Non-Warranty" if str(x).lower() in ["non-warranty", "nan", "out of warranty"] else "Warranty"
             )
-            w_vs_nw = f_master['W_Status'].value_counts().reset_index()
-            w_vs_nw.columns = ['Status', 'Count']
+            w_data = f_master['W_Status'].value_counts().reset_index()
+            w_data.columns = ['Status', 'Count']
             
-            fig_bar = px.bar(w_vs_nw, x='Status', y='Count', color='Status',
+            fig_bar = px.bar(w_data, x='Status', y='Count', color='Status',
                              color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
                              text_auto=True)
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
@@ -161,16 +154,17 @@ st.markdown("---")
             today = datetime.now()
             f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
             
+            # Count logic for Pie Chart
             od = f_master[f_master[warr_exp_col] < today].shape[0]
-            curr = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
+            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
             
-            next_m = (today.month % 12) + 1
-            next_y = today.year + (1 if today.month == 12 else 0)
-            nxt = f_master[(f_master[warr_exp_col].dt.month == next_m) & (f_master[warr_exp_col].dt.year == next_y)].shape[0]
+            next_m_val = (today.month % 12) + 1
+            next_m_yr = today.year + (1 if today.month == 12 else 0)
+            nxt_m = f_master[(f_master[warr_exp_col].dt.month == next_m_val) & (f_master[warr_exp_col].dt.year == next_m_yr)].shape[0]
             
             pie_df = pd.DataFrame({
                 "Category": ["Overdue", "Current Month Due", "Next Month Due"],
-                "Count": [od, curr, nxt]
+                "Count": [od, curr_m, nxt_m]
             })
             
             fig_pie = px.pie(pie_df, values='Count', names='Category', 
@@ -180,6 +174,7 @@ st.markdown("---")
             st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown("---")
+    
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error
 

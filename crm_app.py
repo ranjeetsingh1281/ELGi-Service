@@ -141,6 +141,7 @@ if sel_mach == "All":
         kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
         kpi_cols[3].metric("🏃 Shift", status_map.get("Shifted", 0))
         kpi_cols[4].metric("🗑️ Scrap", status_map.get("Scraped", 0))
+        kpi_cols[5].metric("✘ Sold", status_map.get("S0ld", 0))
     
     
     # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---

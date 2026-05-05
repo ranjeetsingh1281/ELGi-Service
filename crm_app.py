@@ -132,36 +132,56 @@ if sel_mach == "All":
 
     st.markdown("---")
 
-    # --- CHARTS SECTION (NameError Fix) ---
-    # Yeh line define hona zaroori hai
-    c_col1, c_col2 = st.columns(2)
-
-    # 1. BAR CHART (Warranty vs Non-Warranty)
-    with c_col1:
-        st.subheader("📊 Warranty vs Non-Warranty")
-        target_col = "Warranty Type"
+    # --- NEW: CATEGORY-WISE WARRANTY ANALYSIS ---
+    st.markdown("---")
+    st.subheader("📊 Category-wise Warranty Status")
+    
+    if "Category" in f_master.columns and "Warranty Type" in f_master.columns:
+        chart_df = f_master.copy()
         
-        if target_col in f_master.columns:
-            chart_df = f_master.copy()
-            # Logic for categorization
-            chart_df['W_Status'] = chart_df[target_col].apply(
-                lambda x: "Non-Warranty" if pd.isna(x) or str(x).strip() == "" or str(x).lower() in ["non-warranty", "nan", "out of warranty"] 
-                else "Warranty"
-            )
-            
-            w_counts = chart_df['W_Status'].value_counts().reindex(["Warranty", "Non-Warranty"], fill_value=0).reset_index()
-            w_counts.columns = ['Status', 'Count']
-            
-            fig_bar = px.bar(w_counts, x='Status', y='Count', color='Status',
-                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
-                             text_auto=True)
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, showlegend=False)
-            st.plotly_chart(fig_bar, use_container_width=True)
+        # 1. Deep Cleaning for Warranty Status
+        def deep_clean_warranty(x):
+            s = str(x).lower().replace(" ", "").replace("-", "")
+            if pd.isna(x) or s in ["nonwarranty", "nan", "outofwarranty", ""]:
+                return "Non-Warranty"
+            return "Warranty"
 
+        chart_df['Status'] = chart_df["Warranty Type"].apply(deep_clean_warranty)
+        
+        # 2. Grouping by Category and Status
+        cat_warr_df = chart_df.groupby(['Category', 'Status']).size().reset_index(name='Count')
+        
+        # 3. Stacked Bar Chart creation
+        fig_cat = px.bar(cat_warr_df, 
+                         x='Category', 
+                         y='Count', 
+                         color='Status',
+                         barmode='group', # Side-by-side bars ke liye 'group' use kiya hai
+                         color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
+                         text_auto=True)
+        
+        fig_cat.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font_color="white", 
+            height=450,
+            xaxis_title=None,
+            yaxis_title="Units Count",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        st.plotly_chart(fig_cat, use_container_width=True, key="category_warranty_chart")
+    else:
+        st.warning("Category ya Warranty Type column file mein nahi mila.")
+
+    # --- KEEPING THE EXPIRY PIE CHART BELOW ---
+    st.markdown("---")
+    c1, c2 = st.columns([0.6, 0.4]) # Pie chart ko side mein rakhne ke liye
+    with c2:
+        st.subheader("⭕ Expiry Overview")
+        # ... aapka existing Pie Chart code yahan rahega ...
     # 2. PIE CHART (Expiry Analysis)
-    with c_col2:
-        st.subheader("⭕ Expiry Analysis")
-        if warr_exp_col in f_master.columns:
+           if warr_exp_col in f_master.columns:
             today = datetime.now()
             f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
             

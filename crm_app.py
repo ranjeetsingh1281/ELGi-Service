@@ -132,7 +132,7 @@ with st.sidebar:
     # --- 1) Metrics & Charts Section (TOTAL FIX) ---
 if sel_mach == "All":
     # 5-Column Metrics Row
-    kpi_cols = st.columns(6)
+    kpi_cols = st.columns(7)
     kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
     kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
     
@@ -141,7 +141,7 @@ if sel_mach == "All":
         kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
         kpi_cols[3].metric("🏃 Shift", status_map.get("Shifted", 0))
         kpi_cols[4].metric("🗑️ Scrap", status_map.get("Scraped", 0))
-        kpi_cols[5].metric("✘ Sold", status_map.get("S0ld", 0))
+        kpi_cols[5].metric("✘ Sold", status_map.get("Sold", 0))
     
     
     # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---

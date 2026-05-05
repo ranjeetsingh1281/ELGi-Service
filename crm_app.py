@@ -201,32 +201,7 @@ if sel_mach == "All":
             st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown("---")
-    # 2. PIE CHART (Expiry Analysis)
-    with c_col2:
-        st.subheader("⭕ Expiry Analysis")
-        if warr_exp_col in f_master.columns:
-            today = datetime.now()
-            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
-            
-            od = f_master[f_master[warr_exp_col] < today].shape[0]
-            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
-            
-            nxt_month_date = today + pd.DateOffset(months=1)
-            nxt_m = f_master[(f_master[warr_exp_col].dt.month == nxt_month_date.month) & (f_master[warr_exp_col].dt.year == nxt_month_date.year)].shape[0]
-            
-            pie_df = pd.DataFrame({
-                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
-                "Count": [od, curr_m, nxt_m]
-            })
-            
-            fig_pie = px.pie(pie_df, values='Count', names='Category', 
-                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
-                             hole=0.4)
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"))
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-    st.markdown("---")
-    
+        
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error
 

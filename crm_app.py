@@ -161,7 +161,7 @@ if sel_mach == "All":
             st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
 
     with chart_col2:
-        st.subheader("⭕ Expiry Overview")
+        st.subheader("⭕ Due Service Overview")
         if warr_exp_col in f_master.columns:
             today = datetime.now()
             f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')

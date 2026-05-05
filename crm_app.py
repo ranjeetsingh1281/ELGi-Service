@@ -138,10 +138,13 @@ if sel_mach == "All":
     
     if "Unit Status" in f_master.columns:
         status_map = f_master["Unit Status"].value_counts()
-        kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
-        kpi_cols[3].metric("🏃 Shift", status_map.get("Shifted", 0))
-        kpi_cols[4].metric("🗑️ Scrap", status_map.get("Scraped", 0))
-        kpi_cols[5].metric("✘ Sold", status_map.get("Sold", 0))
+        kpi_cols[2].metric("👨🏻‍💼 A", status_map.get("A", 0))
+        kpi_cols[3].metric("🙋🏻 B", status_map.get("B", 0))
+        kpi_cols[4].metric("👨🏻‍🔧 C", status_map.get("C", 0))
+        kpi_cols[5].metric("🚚 Active", status_map.get("Active", 0))
+        kpi_cols[6].metric("🏃 Shift", status_map.get("Shifted", 0))
+        kpi_cols[7].metric("🗑️ Scrap", status_map.get("Scraped", 0))
+        kpi_cols[8].metric("✘ Sold", status_map.get("Sold", 0))
     
     
     # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---

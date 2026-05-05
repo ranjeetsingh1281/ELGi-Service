@@ -132,7 +132,7 @@ with st.sidebar:
     # --- 1) Metrics & Charts Section (TOTAL FIX) ---
 if sel_mach == "All":
     # 5-Column Metrics Row
-    kpi_cols = st.columns(7)
+    kpi_cols = st.columns(10)
     kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
     kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
     

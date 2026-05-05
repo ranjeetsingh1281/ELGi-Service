@@ -114,24 +114,6 @@ with st.sidebar:
             
             st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
 
-# --- 1) Metrics & Charts Section (TOTAL FIX) ---
-if sel_mach == "All":
-    # 5-Column Metrics Row
-    kpi_cols = st.columns(5)
-    kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
-    kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
-    
-    if "Unit Status" in f_master.columns:
-        status_map = f_master["Unit Status"].value_counts()
-        kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
-        kpi_cols[3].metric("🗑️ Scraped", status_map.get("Scraped", 0))
-    
-    if warr_type_col in f_master.columns:
-        w_count = f_master[warr_type_col].nunique()
-        kpi_cols[4].metric("🛡️ Warranty Types", w_count)
-
-    st.markdown("---")
-
     # --- 1) Metrics & Charts Section (TOTAL FIX) ---
 if sel_mach == "All":
     # 5-Column Metrics Row

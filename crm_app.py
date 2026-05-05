@@ -130,40 +130,37 @@ if sel_mach == "All":
         w_count = f_master[warr_type_col].nunique()
         kpi_cols[4].metric("🛡️ Warranty Types", w_count)
 
+    # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---
     st.markdown("---")
-
-    # --- 1. CATEGORY-WISE WARRANTY STATUS (FIXED INDENTATION) ---
-    st.markdown("---")
-    st.subheader("📊 Category-wise Warranty Status")
     
-    if "Category" in f_master.columns and "Warranty Type" in f_master.columns:
-        chart_df = f_master.copy()
-        
-        # Deep cleaning logic for warranty status
-        def deep_clean_warranty(x):
-            s = str(x).lower().replace(" ", "").replace("-", "")
-            if pd.isna(x) or s in ["nonwarranty", "nan", "outofwarranty", ""]:
-                return "Non-Warranty"
-            return "Warranty"
+    # Dono charts ko ek hi line mein rakhne ke liye columns (60% Bar, 40% Pie)
+    chart_col1, chart_col2 = st.columns([0.6, 0.4])
 
-        chart_df['Status'] = chart_df["Warranty Type"].apply(deep_clean_warranty)
-        
-        # Grouping by Category and Status
-        cat_warr_df = chart_df.groupby(['Category', 'Status']).size().reset_index(name='Count')
-        
-        fig_cat = px.bar(cat_warr_df, x='Category', y='Count', color='Status',
-                         barmode='group',
-                         color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
-                         text_auto=True)
-        
-        fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                             font_color="white", height=450, legend=dict(orientation="h", y=1.02))
-        st.plotly_chart(fig_cat, use_container_width=True, key="cat_warr_chart_fixed")
+    with chart_col1:
+        st.subheader("📊 Category Warranty Status")
+        if "Category" in f_master.columns and "Warranty Type" in f_master.columns:
+            chart_df = f_master.copy()
+            
+            def deep_clean_warranty(x):
+                s = str(x).lower().replace(" ", "").replace("-", "")
+                if pd.isna(x) or s in ["nonwarranty", "nan", "outofwarranty", ""]:
+                    return "Non-Warranty"
+                return "Warranty"
 
-    # --- 2. EXPIRY ANALYSIS (FIXED INDENTATION) ---
-    st.markdown("---")
-    col_a, col_b = st.columns([0.6, 0.4])
-    with col_b:
+            chart_df['Status'] = chart_df["Warranty Type"].apply(deep_clean_warranty)
+            cat_warr_df = chart_df.groupby(['Category', 'Status']).size().reset_index(name='Count')
+            
+            fig_cat = px.bar(cat_warr_df, x='Category', y='Count', color='Status',
+                             barmode='group',
+                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#ff4444'},
+                             text_auto=True)
+            
+            fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                                 font_color="white", height=400, showlegend=True,
+                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
+
+    with chart_col2:
         st.subheader("⭕ Expiry Overview")
         if warr_exp_col in f_master.columns:
             today = datetime.now()
@@ -183,9 +180,9 @@ if sel_mach == "All":
             fig_pie = px.pie(pie_df, values='Count', names='Category', 
                              color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
                              hole=0.4)
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, 
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=400,
                                  legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"))
-            st.plotly_chart(fig_pie, use_container_width=True, key="expiry_pie_fixed")
+            st.plotly_chart(fig_pie, use_container_width=True, key="side_pie_chart")
 
     st.markdown("---")
         

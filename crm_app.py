@@ -6,26 +6,19 @@ from io import BytesIO
 st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. GLASS UI & VISIBILITY CSS ---
-# --- CRIMSON UI CSS UPDATE ---
 st.markdown("""
     <style>
-    /* Global Background changed to Crimson Gradient */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #8b0000 0%, #dc143c 100%);
         color: #f8fafc !important;
     }
-    
-    /* Sidebar Background (Slightly darker Crimson) */
     [data-testid="stSidebar"] {
         background-color: rgba(60, 0, 0, 0.95) !important;
         backdrop-filter: blur(10px);
         border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
-
-    /* Rest of the CSS remains same for visibility */
     [data-testid="stSidebar"] label p { color: #ffffff !important; font-weight: 700 !important; }
     [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #0f172a !important; font-weight: 600 !important; }
-    
     [data-testid="stMetric"] {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(10px);
@@ -34,23 +27,19 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.2);
     }
     div[data-testid="stMetricValue"] > div { color: #ffffff !important; font-weight: 800; }
-    
     h1, h2, h3, h4, p, span { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- YAHAN PASTE KAREIN (Approx Line 70-80) ---
+# --- 3. REFRESH BUTTON & HEADER ---
 head_col1, head_col2 = st.columns([0.8, 0.2])
-
 with head_col1:
     st.markdown('<h1 style="color:#ffffff; font-size:2.5rem; font-weight:800; margin-bottom:0;">PRIME POWER CRM PRO</h1>', unsafe_allow_html=True)
-
 with head_col2:
     st.write("") 
     if st.button("🔄 Refresh Data"):
         st.cache_data.clear()
         st.rerun()
-
 st.markdown("---")
 
 @st.cache_data
@@ -69,7 +58,6 @@ master, service, foc = load_data()
 for df in [master, service, foc]:
     if not df.empty: df.columns = df.columns.str.strip()
 
-# Helper Functions
 def format_date(val):
     if pd.isna(val) or str(val).strip() == "" or val == "N/A": return "N/A"
     try: return pd.to_datetime(val).strftime('%d-%b-%y')
@@ -80,95 +68,76 @@ def find_col(df, kws):
         if any(k.lower() in str(c).lower() for k in kws): return c
     return None
 
-# Detect Columns
 cust_col = find_col(master, ["customer name", "customer"]) or "CUSTOMER NAME"
 mach_col = find_col(master, ["fabrication", "fab no"]) or "FABRICATION NO."
 warr_type_col = find_col(master, ["warranty type", "warranty pd"]) or "Warranty Type"
 warr_exp_col = find_col(master, ["warranty expires", "warranty exp"]) or "Warranty Expires on"
+comm_col = find_col(master, ["commissioning date", "comm date"]) or "Commissioning Date"
 
-# --- SIDEBAR WITH LOGOS ---
+# --- SIDEBAR ---
 with st.sidebar:
-    # Dono logos ko side-by-side dikhane ke liye columns
     log_col1, log_col2 = st.columns(2)
-    
     try:
-        with log_col1:
-            # Prime Power Logo
-            st.image("input_file_0.png", use_container_width=True)
-        
-        with log_col2:
-            # ELGi Logo
-            st.image("input_file_2.png", use_container_width=True)
-    except Exception as e:
-        st.warning("Logo files missing! Please upload 'input_file_2.png' and 'input_file_0.png' to your folder.")
+        with log_col1: st.image("input_file_0.png", use_container_width=True)
+        with log_col2: st.image("input_file_2.png", use_container_width=True)
+    except: st.warning("Logo files missing!")
 
-st.markdown("---")
-    st.markdown("### 📊 Monthly Intelligence")
-with st.sidebar:
     st.markdown("### 🛠️ Control Panel")
-    
-    # Category Filter
     if "Category" in master.columns:
         cat_list = ["All"] + sorted(master["Category"].dropna().unique().tolist())
         sel_cat = st.selectbox("📁 Category", cat_list)
         if sel_cat != "All": master = master[master["Category"] == sel_cat]
 
     sel_cust = st.selectbox("👤 Customer", ["All"] + sorted(master[cust_col].dropna().unique().tolist()))
-    
     f_master = master.copy()
     if sel_cust != "All": f_master = master[master[cust_col] == sel_cust]
-    
     sel_mach = st.selectbox("⚙️ Track Fabrication No.", ["All"] + sorted(f_master[mach_col].dropna().astype(str).unique().tolist()))
 
     st.markdown("---")
-    # Warranty Tracker Table
-    st.markdown("### 📅 Warranty Expiry Tracker")
+    st.markdown("### 📊 Monthly Intelligence")
     if warr_exp_col in master.columns:
         master[warr_exp_col] = pd.to_datetime(master[warr_exp_col], errors='coerce')
+        if comm_col in master.columns: master[comm_col] = pd.to_datetime(master[comm_col], errors='coerce')
+        
         valid_dates = master[master[warr_exp_col].notna()]
         if not valid_dates.empty:
             years = sorted(valid_dates[warr_exp_col].dt.year.unique().tolist(), reverse=True)
-            sel_year = st.selectbox("Filter Expiry Year", years)
+            sel_year = st.selectbox("Select Year", years)
+            months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
             
-            year_data = valid_dates[valid_dates[warr_exp_col].dt.year == sel_year]
-            monthly = year_data[warr_exp_col].dt.strftime('%B').value_counts().reindex([
-                "January", "February", "March", "April", "May", "June", 
-                "July", "August", "September", "October", "November", "December"
-            ]).fillna(0).astype(int)
-            st.table(monthly.rename("Units"))
+            w_monthly = master[master[warr_exp_col].dt.year == sel_year][warr_exp_col].dt.strftime('%B').value_counts().reindex(months).fillna(0).astype(int)
+            c_monthly = pd.Series(0, index=months)
+            if comm_col in master.columns:
+                c_monthly = master[master[comm_col].dt.year == sel_year][comm_col].dt.strftime('%B').value_counts().reindex(months).fillna(0).astype(int)
+            
+            st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
 
-# --- MAIN DASHBOARD ---
-st.markdown('<h1 style="color:#38bdf8; font-size:3rem; font-weight:800;">PRIME POWER CRM PRO</h1>', unsafe_allow_html=True)
-st.markdown("---")
-
-# 1) Metrics Section - FIXED TYPO HERE (kpi1 instead of kpii1)
-kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
-kpi1.metric("👤 Total Customers", f_master[cust_col].nunique())
-kpi2.metric("⚙️ Total Machines", f_master[mach_col].nunique())
+# --- MAIN DASHBOARD METRICS ---
+kpi_cols = st.columns(6)
+kpi_cols[0].metric("👤 Customers", f_master[cust_col].nunique())
+kpi_cols[1].metric("⚙️ Machines", f_master[mach_col].nunique())
 
 if "Unit Status" in f_master.columns:
     status = f_master["Unit Status"].value_counts()
-    kpi3.metric("🚚 Active", status.get("Active", 0))
-    kpi4.metric("🗑️ Scraped", status.get("Scraped", 0))
-    kpi5.metric("🚔 Shifted", status.get("Shifted", 0))
-    kpi6.metric("❌ Sold", status.get("Sold", 0))
+    kpi_cols[2].metric("🚚 Active", status.get("Active", 0))
+    kpi_cols[3].metric("🗑️ Scraped", status.get("Scraped", 0))
 
-# Naya Warranty Type Count
 if warr_type_col in f_master.columns:
     w_count = f_master[warr_type_col].nunique()
-    kpi_cols[3].metric("🛡️ Warranty Types", w_count)
+    kpi_cols[4].metric("🛡️ Warranty Types", w_count)
 
-# Warranty ka detailed breakdown metrics ke thik niche
 if warr_type_col in f_master.columns:
-    st.markdown("#### 🛡️ Warranty Breakdown Details")
+    st.markdown("#### 🛡️ Warranty Breakdown")
     w_breakdown = f_master[warr_type_col].value_counts()
-    w_sub_cols = st.columns(len(w_breakdown) if len(w_breakdown) > 0 else 1)
+    wb_cols = st.columns(len(w_breakdown) if len(w_breakdown) > 0 else 1)
     for i, (name, val) in enumerate(w_breakdown.items()):
-        w_sub_cols[i % len(w_sub_cols)].write(f"**{name}:** `{val}`")
-        
+        wb_cols[i % len(wb_cols)].write(f"**{name}:** `{val}`")
+
 st.markdown("---")
 
-# 2) 4-Column Tracker (When Machine Selected)
+# --- TRACKER & FOC LOGIC ---
+foc_display = pd.DataFrame() # Initializing to avoid error
+
 if sel_mach != "All":
     m_data = master[master[mach_col].astype(str) == str(sel_mach)].iloc[0]
     st.subheader(f"💎 Live Tracking: {sel_mach}")
@@ -176,111 +145,39 @@ if sel_mach != "All":
     t1, t2, t3, t4 = st.columns(4)
     with t1:
         st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
-        st.write(f"**Address:** {m_data.get('Address', 'N/A')}")
-        st.write(f"**Email:** {m_data.get('EMAIL ID', 'N/A')}")
         st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
-        st.write(f"**Last Service Date:** {format_date(m_data.get('Last Service Date'))}")
-        st.write(f"**Last Service HMR:** {m_data.get('Last Service HMR', 'N/A')}")
-        st.write(f"**Avg. Hrs:** {m_data.get('Avg. Hrs', '0')}")
-        st.write(f"**HMR Cal.:** {m_data.get('HMR Cal.', 'N/A')}")
-    
     with t2:
-        st.warning("📅 Last Replacement")
-        for r_col in ["Oil R Date", "AFC R Date", "AFE R Date", "MOF R Date", "ROF R Date", "AOS R Date", "RGT R Date", "1500 kit R Date", "3000 kit R Date"]:
-            st.write(f"**{r_col}:** {format_date(m_data.get(r_col))}")
-            
+        st.warning("📅 Replacements")
+        for r in ["Oil R Date", "AFC R Date"]: st.write(f"**{r}:** {format_date(m_data.get(r))}")
     with t3:
-        st.success("⏳ LIVE Remaining")
-        for l_col in ["LIVE - Oil remaining", "LIVE - Air filter replaced - Compressor Remaining Hours", "LIVE - Air filter replaced - Engine Remaining Hours", "LIVE - Main Oil filter Remaining Hours", "LIVE - Return Oil filter Remaining Hours", "LIVE - Separator remaining", "LIVE - Motor regressed remaining", "LIVE - 1500 Valve kit Remaining Hours", "LIVE - 3000 Valve kit Remaining Hours"]:
-            st.write(f"**{l_col}:** {m_data.get(l_col, '0')}")
-            
+        st.success("⏳ Remaining")
+        st.write(f"**Oil Remaining:** {m_data.get('LIVE - Oil remaining', '0')}")
     with t4:
-        st.error("🚨 Next Due Dates")
-        for d_col in ["OIL DUE DATE", "AFC DUE DATE", "AFE DUE DATE", "MOF DUE DATE", "ROF DUE DATE", "AOS DUE DATE", "RGT DUE DATE", "1500 KIT DUE DATE", "3000 KIT DUE DATE"]:
-            st.write(f"**{d_col}:** {format_date(m_data.get(d_col))}")
+        st.error("🚨 Dues")
+        st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
 
     st.markdown("---")
-
-    # 3) Service Requests
-    st.subheader("🛠️ Recent Service Requests")
-    svc_fab = find_col(service, ["fabrication"])
-    if svc_fab:
-        s_disp = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
-        if not s_disp.empty:
-            if "Call Logged Date" in s_disp.columns: s_disp = s_disp.sort_values("Call Logged Date", ascending=False)
-            for _, row in s_disp.head(5).iterrows():
-                with st.expander(f"📅 {format_date(row.get('Call Logged Date'))} | {row.get('Call HMR')} | {row.get('Call Type','N/A')}"):
-                    st.info(row.get("Service Engineer Comments", "No comments."))
     
-    # 4) FOC Details (Mobile & Desktop Optimized with Expanders)
+    # FOC Details
     st.subheader("📦 FOC Status Tracker")
     foc_fab_col = find_col(foc, ["fabrication"])
-    
     if foc_fab_col:
-        # Selected machine ke liye FOC filter karna
         foc_display = foc[foc[foc_fab_col].astype(str) == str(sel_mach)].copy()
-        
         if not foc_display.empty:
-            # Latest FOC pehle dikhane ke liye sorting
-            if "Created On" in foc_display.columns:
-                foc_display = foc_display.sort_values("Created On", ascending=False)
-            
             for _, row in foc_display.iterrows():
-                # Header labels setup
-                foc_no = row.get("FOC Number", "N/A")
-                foc_date = format_date(row.get("Created On"))
-                # FOC Status column detect karna
-                foc_status_col = find_col(foc, ["foc status", "status"])
-                foc_status = row.get(foc_status_col, "In Process") if foc_status_col else "N/A"
-                
-                # Main Expander Label
-                foc_label = f"📦 FOC: {foc_no} | 📅 {foc_date} | 🏷️ Status: {foc_status}"
-                
-                with st.expander(foc_label):
-                    # Internal details grid layout
-                    fc1, fc2 = st.columns(2)
-                    with fc1:
-                        st.write(f"**Work Order Number:** {row.get('Work Order Number', 'N/A')}")
-                        st.write(f"**Part Code:** {row.get('Part Code', 'N/A')}")
-                    with fc2:
-                        st.write(f"**Failed Material Description:**")
-                        st.info(row.get("Failure Material Details", "No description available."))
-        else:
-            st.info("Is machine ke liye koi FOC record nahi mila.")
+                with st.expander(f"📦 FOC: {row.get('FOC Number')} | Status: {row.get('Status', 'In Process')}"):
+                    st.write(f"**Part:** {row.get('Part Code')}")
+                    st.info(row.get("Failure Material Details", "No details."))
+        else: st.info("No FOC Records.")
 
-# --- EXCEL REPORT EXPORT LOGIC ---
+# --- EXPORT REPORT ---
+if not foc_display.empty:
     st.markdown("---")
     st.subheader("📊 Export FOC Report")
+    def to_excel(df):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        return output.getvalue()
     
-    if not foc_display.empty:
-        # Report ke liye columns select karna
-        # Note: 'Qty' column agar aapki sheet mein alag naam se hai toh usey check karlein
-        report_cols = ["Created On", "FOC Number", "Customer Name", "Failure Material Details", "Part Code", "ELGI IVOICE NO."]
-        
-        # Check karna ki saare columns exist karte hain
-        existing_report_cols = [c for c in report_cols if c in foc_display.columns]
-        
-        # Filtered data for report
-        export_df = foc_display[existing_report_cols].copy()
-        
-        # Updated Excel File function without xlsxwriter
-        def to_excel(df):
-            output = BytesIO()
-            # engine='xlsxwriter' ko hata kar default engine use karein
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='FOC_Report')
-            processed_data = output.getvalue()
-            return processed_data
-
-        excel_data = to_excel(export_df)
-        
-        # Download Button
-        file_name = f"FOC_Report_{sel_cust}_{sel_mach}.xlsx"
-        st.download_button(
-            label="📥 Download FOC Excel Report",
-            data=excel_data,
-            file_name=file_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    else:
-        st.info("Report banane ke liye koi data available nahi hai.")
+    st.download_button("📥 Download Excel Report", data=to_excel(foc_display), file_name="FOC_Report.xlsx")

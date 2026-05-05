@@ -85,11 +85,26 @@ with st.sidebar:
     except: st.warning("Logo files missing!")
 
     st.markdown("### 🛠️ Control Panel")
+    # 1. Location Filter (Toggle)
+    loc_col = find_col(master, ["location", "city", "site"])
+    if loc_col and loc_col in master.columns:
+        all_locs = sorted(master[loc_col].dropna().unique().tolist())
+        # Toggle jaisa kaam karne ke liye multiselect best hai
+        sel_locs = st.multiselect("📍 Filter by Location", options=all_locs, default=all_locs)
+        
+        # Data filter karna selected locations ke hisaab se
+        if sel_locs:
+            master = master[master[loc_col].isin(sel_locs)]
+        else:
+            st.warning("Please select at least one location.")
+        
+    # 2. Category Filter
     if "Category" in master.columns:
         cat_list = ["All"] + sorted(master["Category"].dropna().unique().tolist())
         sel_cat = st.selectbox("📁 Category", cat_list)
         if sel_cat != "All": master = master[master["Category"] == sel_cat]
-
+    
+    # 3. Customer & Fabrication Filters
     sel_cust = st.selectbox("👤 Customer", ["All"] + sorted(master[cust_col].dropna().unique().tolist()))
     f_master = master.copy()
     if sel_cust != "All": f_master = master[master[cust_col] == sel_cust]

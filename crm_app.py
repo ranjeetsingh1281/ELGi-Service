@@ -135,6 +135,48 @@ if warr_type_col in f_master.columns:
 
 st.markdown("---")
 
+# --- CHARTS ROW ---
+    c_col1, c_col2 = st.columns(2)
+
+    with c_col1:
+        st.subheader("📊 Warranty vs Non-Warranty")
+        if warr_type_col in f_master.columns:
+            # Warranty vs Non-Warranty logic
+            w_data = f_master[warr_type_col].apply(lambda x: "Non-Warranty" if str(x).lower() in ["non-warranty", "out of warranty", "nan"] else "Warranty").value_counts().reset_index()
+            w_data.columns = ['Status', 'Count']
+            fig1 = px.bar(w_data, x='Status', y='Count', color='Status', 
+                          color_discrete_map={'Warranty': '#00ff00', 'Non-Warranty': '#ff0000'},
+                          text_auto=True)
+            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=350)
+            st.plotly_chart(fig1, use_container_width=True)
+
+    with c_col2:
+        st.subheader("⭕ Expiry Analysis")
+        if warr_exp_col in f_master.columns:
+            today = datetime.now()
+            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
+            
+            overdue = f_master[f_master[warr_exp_col] < today].shape[0]
+            curr_month = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
+            
+            # Next Month Logic
+            next_month = (today.month % 12) + 1
+            next_month_year = today.year + (1 if today.month == 12 else 0)
+            next_due = f_master[(f_master[warr_exp_col].dt.month == next_month) & (f_master[warr_exp_col].dt.year == next_month_year)].shape[0]
+            
+            pie_data = pd.DataFrame({
+                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
+                "Count": [overdue, curr_month, next_due]
+            })
+            
+            fig2 = px.pie(pie_data, values='Count', names='Category', 
+                          color_discrete_sequence=['#ff4b4b', '#fbc02d', '#1e88e5'],
+                          hole=0.4)
+            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=350, showlegend=True)
+            st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("---")
+
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error
 

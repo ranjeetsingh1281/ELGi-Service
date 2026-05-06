@@ -44,17 +44,27 @@ with head_col2:
         st.rerun()
 st.markdown("---")
 
-@st.cache_data
-def load_data():
-    try:
-        master = pd.read_excel("Master_Data.xlsx")
-        service = pd.read_excel("Service_Details.xlsx")
-        foc = pd.read_excel("Active_FOC.xlsx")
-        return master, service, foc
-    except:
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+# --- 1. ONLINE LINKS SETUP ---
+links = {
+    "master": "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQXJhQVpsY0g5WFE2elRJMmtHUndzZkFkOFpYUk9IOG1xZzZCeXZjdzBOY1RRP2U9bkNNaDRZ/root/content",
+    "service": "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQ19CejhrNDZ4X1NvNTU0b09TSnphQkFYQjg3QmRlTGFPOF84c0M2cC1nVWZNP2U9cXNHYmxI/root/content",
+    "foc": "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRRDNpbGJnNmxuSlNLcXp1TjlpWVBDdEFZMjZQUkJ5Ynh1alB1dHozcHg5RVFBP2U9cDllOHJa/root/content"
+}
 
-master, service, foc = load_data()
+@st.cache_data(ttl=300) # Data har 5 minute mein auto-update hoga
+def load_all_online_data():
+    try:
+        m_df = pd.read_excel(links["master"])
+        s_df = pd.read_excel(links["service"])
+        f_df = pd.read_excel(links["foc"])
+        return m_df, s_df, f_df
+    except Exception as e:
+        # Agar internet fail ho toh local backup load karega
+        st.sidebar.warning(f"Using Offline Backup. Error: {e}")
+        return pd.read_excel("Master_Data.xlsx"), pd.read_excel("Service_Details.xlsx"), pd.read_excel("Active_FOC.xlsx")
+
+# Naye variables assign karna
+master, service, foc = load_all_online_data()
 
 # Clean Columns
 for df in [master, service, foc]:

@@ -44,31 +44,33 @@ with head_col2:
         st.rerun()
 st.markdown("---")
 
-# --- 1. CLOUD LINKS (Direct Download Fix) ---
-# In links ko maine manually re-verify kiya hai
+# --- 1. CLOUD LINKS (Final Verified Connection) ---
 master_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQXJhQVpsY0g5WFE2elRJMmtHUndzZkFkOFpYUk9IOG1xZzZCeXZjdzBOY1RRP2U9bkNNaDRZ/root/content"
 service_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQ19CejhrNDZ4X1NvNTU0b09TSnphQkFYQjg3QmRlTGFPOF84c0M2cC1nVWZNP2U9cXNHYmxI/root/content"
 foc_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRRDNpbGJnNmxuSlNLcXp1TjlpWVBDdEFZMjZQUkJ5Ynh1alB1dHozcHg5RVFBP2U9cDllOHJa/root/content"
 
-# Sidebar mein Refresh Button taaki turant update ho
+# Sidebar Refresh Button
 if st.sidebar.button('🔄 Sync Online Data'):
     st.cache_data.clear()
     st.rerun()
 
-@st.cache_data(ttl=60) # Sirf 1 minute ka cache (Data fast update hoga)
-def load_online_data():
+@st.cache_data(ttl=300) # 5 Minute Cache
+def load_all_online_data():
     try:
+        # Online fetch karne ki koshish
         m = pd.read_excel(master_url)
         s = pd.read_excel(service_url)
-        f = pd.read_excel(f_url)
+        f = pd.read_excel(foc_url)
         return m, s, f
     except Exception as e:
-        # Agar online fail ho, toh local file read karega
-        return pd.read_excel("Master_Data.xlsx"), pd.read_excel("Service_Details.xlsx"), pd.read_excel("Active_FOC.xlsx")
+        # Agar error aaye toh local backup files use karein
+        st.sidebar.error(f"Cloud Link Error: {e}")
+        m_local = pd.read_excel("Master_Data.xlsx")
+        s_local = pd.read_excel("Service_Details.xlsx")
+        f_local = pd.read_excel("Active_FOC.xlsx")
+        return m_local, s_local, f_local
 
-master, service, foc = load_online_data()
-
-# Naye variables assign karna
+# --- IMPORTANT: Ye line error fix karegi ---
 master, service, foc = load_all_online_data()
 
 # Clean Columns

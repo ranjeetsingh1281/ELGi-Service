@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import requests
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
@@ -44,40 +45,40 @@ with head_col2:
         st.rerun()
 st.markdown("---")
 
-# --- 1. CLOUD LINKS (Updated with Direct Logic) ---
-# Maine links ko direct download format mein convert karne ki koshish ki hai
+# --- 1. CLOUD LINKS (Direct Stream Logic) ---
 master_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQXJhQVpsY0g5WFE2elRJMmtHUndzZkFkOFpYUk9IOG1xZzZCeXZjdzBOY1RRP2U9bkNNaDRZ/root/content"
 service_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQ19CejhrNDZ4X1NvNTU0b09TSnphQkFYQjg3QmRlTGFPOF84c0M2cC1nVWZNP2U9cXNHYmxI/root/content"
 foc_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRRDNpbGJnNmxuSlNLcXp1TjlpWVBDdEFZMjZQUkJ5Ynh1alB1dHozcHg5RVFBP2U9cDllOHJa/root/content"
 
-# Sidebar Refresh
-if st.sidebar.button('🔄 Sync Online Data'):
-    st.cache_data.clear()
-    st.rerun()
-
 @st.cache_data(ttl=60)
-def load_all_online_data():
-    files = {"master": master_url, "service": service_url, "foc": foc_url}
-    dfs = []
-    
-    for name, url in files.items():
-        try:
-            # Engine='openpyxl' add kiya hai behtar compatibility ke liye
-            df = pd.read_excel(url, engine='openpyxl')
-            dfs.append(df)
-        except Exception as e:
-            st.sidebar.warning(f"⚠️ {name.upper()} load nahi hui, using local backup.")
-            # Local backup load karna agar online fail ho
-            try:
-                dfs.append(pd.read_excel(f"{name.capitalize()}_Data.xlsx" if name=="master" else f"{name.capitalize()}_Details.xlsx" if name=="service" else "Active_FOC.xlsx"))
-            except:
-                dfs.append(pd.DataFrame()) # Empty dataframe agar local bhi na mile
+def fetch_onedrive_data(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return pd.read_excel(BytesIO(response.content), engine='openpyxl')
+        else:
+            return None
+    except:
+        return None
 
-    return dfs[0], dfs[1], dfs[2]
+def load_all_online_data():
+    m = fetch_onedrive_data(master_url)
+    s = fetch_onedrive_data(service_url)
+    f = fetch_onedrive_data(foc_url)
+    
+    # Agar online fail ho toh local files load karein
+    if m is None:
+        st.sidebar.warning("Master Data online nahi mila, local load ho raha hai.")
+        m = pd.read_excel("Master_Data.xlsx")
+    if s is None:
+        s = pd.read_excel("Service_Details.xlsx")
+    if f is None:
+        f = pd.read_excel("Active_FOC.xlsx")
+        
+    return m, s, f
 
 # Data load karna
 master, service, foc = load_all_online_data()
-
 # Clean Columns
 for df in [master, service, foc]:
     if not df.empty: df.columns = df.columns.str.strip()

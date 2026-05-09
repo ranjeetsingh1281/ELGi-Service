@@ -45,38 +45,42 @@ with head_col2:
         st.rerun()
 st.markdown("---")
 
-# --- 1. SINGLE MERGED FILE CONNECTION (STRICT DOWNLOAD) ---
-# Yahan apni merged file ka link dhyan se paste karein
+# --- 1. SINGLE MERGED FILE CONNECTION (HANDLE REDIRECTS) ---
+# Link ko verify karein ki ye 'Anyone with link' wala hi hai
 merged_url = "https://1drv.ms/x/c/e72d8f634bb60008/IQAIALZLY48tIIDnvU4DAAAAAdx2NSH4kJ0O4VmoJBZ-DwE?e=5GtnOS"
 
 @st.cache_data(ttl=60)
 def load_merged_cloud_data():
     try:
-        # User-Agent add kiya hai taaki OneDrive block na kare
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(merged_url, headers=headers, timeout=20)
+        # allow_redirects=True aur headers add kiye hain redirection bypass karne ke liye
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/octet-stream'
+        }
+        
+        response = requests.get(merged_url, headers=headers, allow_redirects=True, timeout=30)
         
         if response.status_code == 200:
             file_bytes = BytesIO(response.content)
-            # engine='openpyxl' use karna zaroori hai .xlsx ke liye
+            # engine='openpyxl' use karke teeno sheets read karna
             with pd.ExcelFile(file_bytes, engine='openpyxl') as xls:
                 m = pd.read_excel(xls, sheet_name='Master')
                 s = pd.read_excel(xls, sheet_name='Service')
                 f = pd.read_excel(xls, sheet_name='FOC')
             return m, s, f
         else:
-            st.sidebar.error(f"Cloud Error: Status {response.status_code}")
+            st.sidebar.error(f"Cloud Connection Error: Status {response.status_code}")
             return None, None, None
     except Exception as e:
         st.sidebar.error(f"Sync failed: {str(e)}")
         return None, None, None
 
-# Data ko assign karna
+# Data ko variables mein load karein
 master, service, foc = load_merged_cloud_data()
 
-# Agar online fail ho toh local files load hongi
+# Fail-safe logic
 if master is None or master.empty:
-    st.sidebar.warning("Cloud Sync fail hua, local files use ho rahi hain.")
+    st.sidebar.warning("Using local backup as Cloud Sync failed.")
     master = pd.read_excel("Master_Data.xlsx")
     service = pd.read_excel("Service_Details.xlsx")
     foc = pd.read_excel("Active_FOC.xlsx")

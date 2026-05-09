@@ -45,40 +45,37 @@ with head_col2:
         st.rerun()
 st.markdown("---")
 
-# --- 1. CLOUD LINKS (Direct Stream Logic) ---
-master_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQXJhQVpsY0g5WFE2elRJMmtHUndzZkFkOFpYUk9IOG1xZzZCeXZjdzBOY1RRP2U9bkNNaDRZ/root/content"
-service_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRQ19CejhrNDZ4X1NvNTU0b09TSnphQkFYQjg3QmRlTGFPOF84c0M2cC1nVWZNP2U9cXNHYmxI/root/content"
-foc_url = "https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3gvYy9lNzJkOGY2MzRiYjYwMDA4L0lRRDNpbGJnNmxuSlNLcXp1TjlpWVBDdEFZMjZQUkJ5Ynh1alB1dHozcHg5RVFBP2U9cDllOHJa/root/content"
+# --- 1. SINGLE FILE CLOUD CONNECTION (Line 46 se start karein) ---
+# Merged file ka link yahan paste karein
+merged_url = "https://1drv.ms/x/c/e72d8f634bb60008/IQAIALZLY48tIIDnvU4DAAAAAdx2NSH4kJ0O4VmoJBZ-DwE?e=5GtnOS"
 
 @st.cache_data(ttl=60)
-def fetch_onedrive_data(url):
+def load_merged_cloud_data():
     try:
-        response = requests.get(url)
+        response = requests.get(merged_url)
         if response.status_code == 200:
-            return pd.read_excel(BytesIO(response.content), engine='openpyxl')
+            file_bytes = BytesIO(response.content)
+            # Dhyan rahe sheet names exact hon: Master, Service, FOC
+            m = pd.read_excel(file_bytes, sheet_name='Master', engine='openpyxl')
+            s = pd.read_excel(file_bytes, sheet_name='Service', engine='openpyxl')
+            f = pd.read_excel(file_bytes, sheet_name='FOC', engine='openpyxl')
+            return m, s, f
         else:
-            return None
-    except:
-        return None
+            return None, None, None
+    except Exception as e:
+        st.sidebar.error(f"Sync failed: {e}")
+        return None, None, None
 
-def load_all_online_data():
-    m = fetch_onedrive_data(master_url)
-    s = fetch_onedrive_data(service_url)
-    f = fetch_onedrive_data(foc_url)
+# Data variables ko value assign karna
+master, service, foc = load_merged_cloud_data()
+
+# Backup logic agar cloud kaam na kare
+if master is None:
+    st.sidebar.warning("Cloud Sync fail hua, local files use ho rahi hain.")
+    master = pd.read_excel("Master_Data.xlsx")
+    service = pd.read_excel("Service_Details.xlsx")
+    foc = pd.read_excel("Active_FOC.xlsx")
     
-    # Agar online fail ho toh local files load karein
-    if m is None:
-        st.sidebar.warning("Master Data online nahi mila, local load ho raha hai.")
-        m = pd.read_excel("Master_Data.xlsx")
-    if s is None:
-        s = pd.read_excel("Service_Details.xlsx")
-    if f is None:
-        f = pd.read_excel("Active_FOC.xlsx")
-        
-    return m, s, f
-
-# Data load karna
-master, service, foc = load_all_online_data()
 # Clean Columns
 for df in [master, service, foc]:
     if not df.empty: df.columns = df.columns.str.strip()

@@ -47,7 +47,7 @@ st.markdown("---")
 
 # --- 1. SINGLE MERGED FILE CONNECTION (STRICT DOWNLOAD) ---
 # Yahan apni merged file ka link dhyan se paste karein
-merged_url = "https://api.onedrive.com/v1.0/shares/u!Aapka_Naya_Merged_Link_Yahan/root/content"
+merged_url = "https://1drv.ms/x/c/e72d8f634bb60008/IQAIALZLY48tIIDnvU4DAAAAAdx2NSH4kJ0O4VmoJBZ-DwE?e=5GtnOS"
 
 @st.cache_data(ttl=60)
 def load_merged_cloud_data():

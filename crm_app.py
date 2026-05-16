@@ -234,6 +234,81 @@ if sel_mach == "All":
 
     st.markdown("---")
 
+    # --- STATUS DUE TRACKER SECTION (OVERDUE / CURRENT / NEXT MONTH) ---
+    st.markdown("---")
+    st.header("🚨 Live Service Urgency Tracker")
+    st.write("Niche ek option chunie aur turant check kijiye ki kaun si machines Overdue hain ya unka service due kab hai:")
+
+    # Horizontal row selection option ke liye
+    selected_status = st.radio(
+        "Urgency Status Chunein:",
+        options=["⚠️ Over Due Machines", "📅 Current Month Due", "⏭️ Next Month Due"],
+        horizontal=True,
+        key="urgency_status_tracker"
+    )
+
+    # Status columns ka data name mapping
+    status_mapping = {
+        "⚠️ Over Due Machines": "Over Due Count",
+        "📅 Current Month Due": "Current Month Due Count",
+        "⏭️ Next Month Due": "Next Month Due2"
+    }
+
+    target_status_col = status_mapping[selected_status]
+
+    # Aapke bataye hue exact 11 columns ki list
+    urgency_required_cols = [
+        'Fabrication No.', 'Model', 'Customer Name', 'Avg. Hrs', 
+        'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
+        'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
+        'Prev. AF-E Due Month', 'Prev. VK Due Month'
+    ]
+    
+    # Dates ko clean display karne ke liye list
+    urgency_date_cols = [
+        'Prev. OOF Due Month', 'Prev. AOS Due Month', 
+        'Prev. AF-C Due Month', 'Prev. AF-E Due Month', 'Prev. VK Due Month'
+    ]
+
+    urgency_existing_cols = [c for c in urgency_required_cols if c in f_master.columns]
+
+    if target_status_col in f_master.columns:
+        status_df = f_master.copy()
+        
+        # Filtering logic: Jisme count 0 se bada ho (yaani filter applicable hai)
+        # Agar Excel mein numbers hain toh > 0, agar text hai toh blank na ho uske liye handle kiya hai
+        try:
+            status_df[target_status_col] = pd.to_numeric(status_df[target_status_col], errors='coerce').fillna(0)
+            filtered_status_df = status_df[status_df[target_status_col] > 0].copy()
+        except:
+            filtered_status_df = status_df[status_df[target_status_col].astype(str).str.strip() != ""].copy()
+
+        if not filtered_status_df.empty:
+            # Date formatting to "dd-mmm-yy" format (e.g., 07-Nov-21)
+            for col in urgency_date_cols:
+                if col in filtered_status_df.columns:
+                    filtered_status_df[col] = pd.to_datetime(filtered_status_df[col], errors='coerce').dt.strftime('%d-%b-%y')
+
+            # Sirf required 11 columns ko display ke liye nikalna
+            urgency_display_df = filtered_status_df[urgency_existing_cols]
+
+            st.write(f"🔍 **Total {len(urgency_display_df)} units** mile jo **{selected_status}** category mein hain:")
+            st.dataframe(urgency_display_df, use_container_width=True, hide_index=True)
+            
+            # Data Export functionality for Ranchi office
+            csv_status = urgency_display_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label=f"📥 Download {selected_status} List (CSV)",
+                data=csv_status,
+                file_name=f"{target_status_col.lower().replace(' ', '_')}_list.csv",
+                mime='text/csv',
+                key=f"dl_btn_{target_status_col}"
+            )
+        else:
+            st.info(f"👍 Sab badiya hai! **{selected_status}** mein koi bhi machine pending nahi mili.")
+    else:
+        st.error(f"⚠️ Excel sheet mein '{target_status_col}' column nahi mila. Kripya column name ki spelling check karein.")
+        
 # --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")

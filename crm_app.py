@@ -234,64 +234,26 @@ if sel_mach == "All":
 
     st.markdown("---")
 
-# --- PARTS DUE PLANNING SECTION (BUTTON HEADING TEXT VISIBILITY FIX) ---
+# --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")
-    st.write("Niche diye gaye buttons par click karke part-wise due list aur schedule dekhein:")
+    st.write("Niche dropdown se ek ya ek se zyada parts select karein unka combined schedule dekhne ke liye:")
 
-    # CSS Injection: Isse sabhi buttons ke andar ka text force-color black ho jayega
-    st.markdown("""
-        <style>
-        div.stButton > button {
-            color: #000000 !important;
-            font-weight: bold !important;
-            background-color: #ffffff !important;
-            border: 1px solid #cccccc !important;
-        }
-        /* Jo button active/selected hai usko alag look dene ke liye */
-        div.stButton > button:active, div.stButton > button:focus {
-            background-color: #ff4b4b !important;
-            color: #ffffff !important;
-            border-color: #ff4b4b !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # 1. Buttons ke liye 5 columns banana
-    b_col1, b_col2, b_col3, b_col4, b_col5 = st.columns(5)
-    
-    if 'selected_part' not in st.session_state:
-        st.session_state.selected_part = 'OOF'
-
-    with b_col1:
-        if st.button("🛢️ OOF Due", use_container_width=True):
-            st.session_state.selected_part = 'OOF'
-    with b_col2:
-        if st.button("🌀 AOS Due", use_container_width=True):
-            st.session_state.selected_part = 'AOS'
-    with b_col3:
-        if st.button("💨 AF-C Due", use_container_width=True):
-            st.session_state.selected_part = 'AF-C'
-    with b_col4:
-        if st.button("⚡ AF-E Due", use_container_width=True):
-            st.session_state.selected_part = 'AF-E'
-    with b_col5:
-        if st.button("🔧 VK Due", use_container_width=True):
-            st.session_state.selected_part = 'VK'
-
+    # Mapping columns aur labels ko handle karne ke liye
     part_mapping = {
-        'OOF': {'col': 'Prev. OOF Due Month', 'label': 'Oil Filter (OOF)'},
-        'AOS': {'col': 'Prev. AOS Due Month', 'label': 'Air Oil Separator (AOS)'},
-        'AF-C': {'col': 'Prev. AF-C Due Month', 'label': 'Air Filter-Compressor (AF-C)'},
-        'AF-E': {'col': 'Prev. AF-E Due Month', 'label': 'Air Filter-Engine (AF-E)'},
-        'VK': {'col': 'Prev. VK Due Month', 'label': 'Valve Kit (VK)'}
+        'Oil Filter (OOF)': 'Prev. OOF Due Month',
+        'Air Oil Separator (AOS)': 'Prev. AOS Due Month',
+        'Air Filter-Compressor (AF-C)': 'Prev. AF-C Due Month',
+        'Air Filter-Engine (AF-E)': 'Prev. AF-E Due Month',
+        'Valve Kit (VK)': 'Prev. VK Due Month'
     }
 
-    current_part = st.session_state.selected_part
-    target_due_col = part_mapping[current_part]['col']
-    part_label = part_mapping[current_part]['label']
-
-    st.subheader(f"📅 Due List For: {part_label}")
+    # Multiple parts select karne ka option
+    selected_parts_labels = st.multiselect(
+        "Kaun-kaun se parts ka Due status dekhna hai?",
+        options=list(part_mapping.keys()),
+        default=['Oil Filter (OOF)'] # Default mein pehla dikhega
+    )
 
     required_cols = [
         'Fabrication No.', 'Model', 'Customer Name', 'Avg. Hrs', 
@@ -300,53 +262,62 @@ if sel_mach == "All":
         'Prev. AF-E Due Month', 'Prev. VK Due Month'
     ]
     
-    date_cols_to_format = [
-        'Prev. OOF Due Month', 'Prev. AOS Due Month', 
-        'Prev. AF-C Due Month', 'Prev. AF-E Due Month', 'Prev. VK Due Month'
-    ]
-
+    date_cols_to_format = list(part_mapping.values())
     existing_cols = [c for c in required_cols if c in f_master.columns]
 
-    if target_due_col in f_master.columns:
+    if selected_parts_labels:
         due_df = f_master.copy()
         
-        due_df[target_due_col] = pd.to_datetime(due_df[target_due_col], errors='coerce')
-        due_df = due_df.dropna(subset=[target_due_col])
+        # Sabhi selected parts ki columns ko datetime mein badalna
+        for label in selected_parts_labels:
+            col_name = part_mapping[label]
+            if col_name in due_df.columns:
+                due_df[col_name] = pd.to_datetime(due_df[col_name], errors='coerce')
 
-        if not due_df.empty:
-            due_df['Year'] = due_df[target_due_col].dt.year.astype(int)
-            due_df['Month'] = due_df[target_due_col].dt.strftime('%B')
+        # Pehle selected part ke hisab se Year/Month filter banana
+        primary_col = part_mapping[selected_parts_labels[0]]
+        
+        # Blank dates saaf karna sirf filtering ke liye
+        filter_base_df = due_df.dropna(subset=[primary_col])
+
+        if not filter_base_df.empty:
+            filter_base_df['Year'] = filter_base_df[primary_col].dt.year.astype(int)
+            filter_base_df['Month'] = filter_base_df[primary_col].dt.strftime('%B')
 
             f_col1, f_col2 = st.columns(2)
             with f_col1:
-                years = sorted(due_df['Year'].unique().tolist())
-                sel_year = st.selectbox(f"Select Year ({part_label})", years, key=f"yr_{current_part}")
+                years = sorted(filter_base_df['Year'].unique().tolist())
+                sel_year = st.selectbox("Select Year", years, key="multi_yr")
             with f_col2:
-                months = due_df[due_df['Year'] == sel_year]['Month'].unique().tolist()
-                sel_month = st.selectbox(f"Select Month ({part_label})", months, key=f"mo_{current_part}")
+                months = filter_base_df[filter_base_df['Year'] == sel_year]['Month'].unique().tolist()
+                sel_month = st.selectbox("Select Month", months, key="multi_mo")
 
-            final_table_df = due_df[(due_df['Year'] == sel_year) & (due_df['Month'] == sel_month)].copy()
+            # Final Table Filter
+            final_table_df = filter_base_df[(filter_base_df['Year'] == sel_year) & (filter_base_df['Month'] == sel_month)].copy()
             
+            # Date formatting to "dd-mmm-yy"
             for col in date_cols_to_format:
                 if col in final_table_df.columns:
                     final_table_df[col] = pd.to_datetime(final_table_df[col], errors='coerce').dt.strftime('%d-%b-%y')
 
             display_df = final_table_df[existing_cols]
 
-            st.write(f"🔍 **Total {len(display_df)} units** found due in **{sel_month} {sel_year}**")
+            st.write(f"🔍 **Total {len(display_df)} units** found matching your criteria in **{sel_month} {sel_year}**")
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             
+            # Combined Download
             csv = display_df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label=f"📥 Download {part_label} Due List (CSV)",
+                label="📥 Download Combined Due List (CSV)",
                 data=csv,
-                file_name=f"{current_part}_due_list_{sel_month}_{sel_year}.csv",
+                file_name=f"combined_parts_due_{sel_month}_{sel_year}.csv",
                 mime='text/csv',
             )
         else:
-            st.info(f"Is data source mein '{target_due_col}' ke liye koi due records nahi mile.")
+            st.info("Chune gaye primary part ke liye koi records nahi mile.")
     else:
-        st.error(f"⚠️ Excel sheet mein '{target_due_col}' column nahi mila.")
+        st.warning("Kripya kam se kam ek part dropdown se select karein.")
+        
         
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error

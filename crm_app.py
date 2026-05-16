@@ -256,7 +256,7 @@ if sel_mach == "All":
     )
 
     required_cols = [
-        'Fabrication No.', 'Model', 'Customer Name', 'Avg. Hrs', 
+        'Fabrication No', 'MODEL', 'CUSTOMER NAME', 'Avg. Hrs', 
         'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
         'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
         'Prev. AF-E Due Month', 'Prev. VK Due Month'

@@ -234,10 +234,28 @@ if sel_mach == "All":
 
     st.markdown("---")
 
-# --- PARTS DUE PLANNING SECTION (HEADING & DATE FORMAT FIX) ---
+# --- PARTS DUE PLANNING SECTION (BUTTON HEADING TEXT VISIBILITY FIX) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")
     st.write("Niche diye gaye buttons par click karke part-wise due list aur schedule dekhein:")
+
+    # CSS Injection: Isse sabhi buttons ke andar ka text force-color black ho jayega
+    st.markdown("""
+        <style>
+        div.stButton > button {
+            color: #000000 !important;
+            font-weight: bold !important;
+            background-color: #ffffff !important;
+            border: 1px solid #cccccc !important;
+        }
+        /* Jo button active/selected hai usko alag look dene ke liye */
+        div.stButton > button:active, div.stButton > button:focus {
+            background-color: #ff4b4b !important;
+            color: #ffffff !important;
+            border-color: #ff4b4b !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
     # 1. Buttons ke liye 5 columns banana
     b_col1, b_col2, b_col3, b_col4, b_col5 = st.columns(5)
@@ -245,21 +263,20 @@ if sel_mach == "All":
     if 'selected_part' not in st.session_state:
         st.session_state.selected_part = 'OOF'
 
-    # Text ko clear aur primary styling ke saath rakhna taaki heading visible ho
     with b_col1:
-        if st.button("🛢️ OOF Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'OOF' else "secondary"):
+        if st.button("🛢️ OOF Due", use_container_width=True):
             st.session_state.selected_part = 'OOF'
     with b_col2:
-        if st.button("🌀 AOS Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AOS' else "secondary"):
+        if st.button("🌀 AOS Due", use_container_width=True):
             st.session_state.selected_part = 'AOS'
     with b_col3:
-        if st.button("💨 AF-C Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AF-C' else "secondary"):
+        if st.button("💨 AF-C Due", use_container_width=True):
             st.session_state.selected_part = 'AF-C'
     with b_col4:
-        if st.button("⚡ AF-E Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AF-E' else "secondary"):
+        if st.button("⚡ AF-E Due", use_container_width=True):
             st.session_state.selected_part = 'AF-E'
     with b_col5:
-        if st.button("🔧 VK Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'VK' else "secondary"):
+        if st.button("🔧 VK Due", use_container_width=True):
             st.session_state.selected_part = 'VK'
 
     part_mapping = {
@@ -293,7 +310,6 @@ if sel_mach == "All":
     if target_due_col in f_master.columns:
         due_df = f_master.copy()
         
-        # Pehle targeted filtering column ko date mein convert karein
         due_df[target_due_col] = pd.to_datetime(due_df[target_due_col], errors='coerce')
         due_df = due_df.dropna(subset=[target_due_col])
 
@@ -309,10 +325,8 @@ if sel_mach == "All":
                 months = due_df[due_df['Year'] == sel_year]['Month'].unique().tolist()
                 sel_month = st.selectbox(f"Select Month ({part_label})", months, key=f"mo_{current_part}")
 
-            # Filter data according to year and month
             final_table_df = due_df[(due_df['Year'] == sel_year) & (due_df['Month'] == sel_month)].copy()
             
-            # --- DATE FORMATTING TO "dd-mmm-yy" (e.g., 07-Nov-21) ---
             for col in date_cols_to_format:
                 if col in final_table_df.columns:
                     final_table_df[col] = pd.to_datetime(final_table_df[col], errors='coerce').dt.strftime('%d-%b-%y')

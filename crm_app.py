@@ -234,7 +234,7 @@ if sel_mach == "All":
 
     st.markdown("---")
 
-# --- PARTS DUE PLANNING SECTION (METRICS & CHARTS KE THEEK NICHE) ---
+# --- PARTS DUE PLANNING SECTION (HEADING & DATE FORMAT FIX) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")
     st.write("Niche diye gaye buttons par click karke part-wise due list aur schedule dekhein:")
@@ -242,27 +242,26 @@ if sel_mach == "All":
     # 1. Buttons ke liye 5 columns banana
     b_col1, b_col2, b_col3, b_col4, b_col5 = st.columns(5)
     
-    # Session state initialize karna taaki selected part yaad rahe
     if 'selected_part' not in st.session_state:
-        st.session_state.selected_part = 'OOF' # Default first part
+        st.session_state.selected_part = 'OOF'
 
+    # Text ko clear aur primary styling ke saath rakhna taaki heading visible ho
     with b_col1:
-        if st.button("🛢️ Prev. OOF Due", use_container_width=True):
+        if st.button("🛢️ OOF Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'OOF' else "secondary"):
             st.session_state.selected_part = 'OOF'
     with b_col2:
-        if st.button("🌀 Prev. AOS Due", use_container_width=True):
+        if st.button("🌀 AOS Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AOS' else "secondary"):
             st.session_state.selected_part = 'AOS'
     with b_col3:
-        if st.button("💨 Prev. AF-C Due", use_container_width=True):
+        if st.button("💨 AF-C Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AF-C' else "secondary"):
             st.session_state.selected_part = 'AF-C'
     with b_col4:
-        if st.button("⚡ Prev. AF-E Due", use_container_width=True):
+        if st.button("⚡ AF-E Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'AF-E' else "secondary"):
             st.session_state.selected_part = 'AF-E'
     with b_col5:
-        if st.button("🔧 Prev. VK Due", use_container_width=True):
+        if st.button("🔧 VK Due", use_container_width=True, type="primary" if st.session_state.selected_part == 'VK' else "secondary"):
             st.session_state.selected_part = 'VK'
 
-    # Mapping jo buttons ko sahi columns se jodegi
     part_mapping = {
         'OOF': {'col': 'Prev. OOF Due Month', 'label': 'Oil Filter (OOF)'},
         'AOS': {'col': 'Prev. AOS Due Month', 'label': 'Air Oil Separator (AOS)'},
@@ -277,31 +276,31 @@ if sel_mach == "All":
 
     st.subheader(f"📅 Due List For: {part_label}")
 
-    # Column names strict clean check karne ke liye logic
     required_cols = [
         'Fabrication No.', 'Model', 'Customer Name', 'Avg. Hrs', 
         'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
         'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
         'Prev. AF-E Due Month', 'Prev. VK Due Month'
     ]
+    
+    date_cols_to_format = [
+        'Prev. OOF Due Month', 'Prev. AOS Due Month', 
+        'Prev. AF-C Due Month', 'Prev. AF-E Due Month', 'Prev. VK Due Month'
+    ]
 
-    # Sirf wahi columns lena jo f_master mein sach mein exist karte hain
     existing_cols = [c for c in required_cols if c in f_master.columns]
 
     if target_due_col in f_master.columns:
-        # Data filtering: Jisme due date blank na ho
         due_df = f_master.copy()
         
-        # Date column ko sahi format mein convert karna taaki filters ban sakein
+        # Pehle targeted filtering column ko date mein convert karein
         due_df[target_due_col] = pd.to_datetime(due_df[target_due_col], errors='coerce')
         due_df = due_df.dropna(subset=[target_due_col])
 
         if not due_df.empty:
-            # Year aur Month nikalna grouping ke liye
             due_df['Year'] = due_df[target_due_col].dt.year.astype(int)
             due_df['Month'] = due_df[target_due_col].dt.strftime('%B')
 
-            # --- YEAR / MONTH FILTERS (SUB-TOGGLES) ---
             f_col1, f_col2 = st.columns(2)
             with f_col1:
                 years = sorted(due_df['Year'].unique().tolist())
@@ -310,19 +309,19 @@ if sel_mach == "All":
                 months = due_df[due_df['Year'] == sel_year]['Month'].unique().tolist()
                 sel_month = st.selectbox(f"Select Month ({part_label})", months, key=f"mo_{current_part}")
 
-            # Final Filtered Data for Table
-            final_table_df = due_df[(due_df['Year'] == sel_year) & (due_df['Month'] == sel_month)]
+            # Filter data according to year and month
+            final_table_df = due_df[(due_df['Year'] == sel_year) & (due_df['Month'] == sel_month)].copy()
             
-            # Display target date back to string for clean view
-            final_table_df[target_due_col] = final_table_df[target_due_col].dt.strftime('%d-%b-%Y')
-            
-            # Sirf required columns ka table dikhana
+            # --- DATE FORMATTING TO "dd-mmm-yy" (e.g., 07-Nov-21) ---
+            for col in date_cols_to_format:
+                if col in final_table_df.columns:
+                    final_table_df[col] = pd.to_datetime(final_table_df[col], errors='coerce').dt.strftime('%d-%b-%y')
+
             display_df = final_table_df[existing_cols]
 
             st.write(f"🔍 **Total {len(display_df)} units** found due in **{sel_month} {sel_year}**")
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             
-            # Excel export button for Ranchi Team
             csv = display_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label=f"📥 Download {part_label} Due List (CSV)",
@@ -333,7 +332,7 @@ if sel_mach == "All":
         else:
             st.info(f"Is data source mein '{target_due_col}' ke liye koi due records nahi mile.")
     else:
-        st.error(f"⚠️ Excel sheet mein '{target_due_col}' column nahi mila. Dhyan dein ki spelling exact honi chahiye.")
+        st.error(f"⚠️ Excel sheet mein '{target_due_col}' column nahi mila.")
         
 # --- TRACKER & FOC LOGIC ---
 foc_display = pd.DataFrame() # Initializing to avoid error

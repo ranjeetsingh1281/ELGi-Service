@@ -258,7 +258,7 @@ if sel_mach == "All":
 
     # Aapke bataye hue exact 11 columns ki list
     urgency_required_cols = [
-        'Fabrication No.', 'Model', 'Customer Name', 'Avg. Hrs', 
+        'Fabrication No', 'MODEL', 'CUSTOMER NAME', 'Avg. Hrs', 
         'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
         'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
         'Prev. AF-E Due Month', 'Prev. VK Due Month'

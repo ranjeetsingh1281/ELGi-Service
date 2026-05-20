@@ -293,6 +293,7 @@ if sel_f != "Select":
         st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Cust:</b> {pick('customer')}</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Model:</b> {pick('model')}</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Loc:</b> {pick('location')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Avg:</b> {pick('MDA AVG Running Hours Per Day')}</div>", unsafe_allow_html=True)
 
     with b:
         st.markdown("### 🔧 Change")

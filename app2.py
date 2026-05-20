@@ -295,7 +295,7 @@ if sel_f != "Select":
         st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Loc:</b> {pick('location')}</div>", unsafe_allow_html=True)
 
     with b:
-        st.markdown("### 🔧 Replacements")
+        st.markdown("### 🔧 Change")
         for p in ["AF R Date", "OF R Date", "Oil R Date", "AOS R Date", "RGT R Date", "Valvekit R Date"]:
             st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px; color: #cbd5e1;'><b>{p[:5]}:</b> {fmt_date(pick(p))}</div>", unsafe_allow_html=True)
 

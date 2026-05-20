@@ -255,7 +255,26 @@ if search:
         st.dataframe(result.head(20), use_container_width=True)
     else:
         st.warning("No matching record found")
-a, b, c, d = st.columns(4)
+
+# ================= MACHINE TRACKER (Fixed Indentation) =================
+st.markdown("---")
+st.subheader("🔍 Machine Tracker")
+
+machines = ["Select"] + list(df_f[fab_col].astype(str).unique())
+sel_f = st.selectbox("Select Machine for Deep Dive", machines, key="main_machine_tracker")
+
+if sel_f != "Select":
+   
+    # --- Customer & Machine Details ---
+    row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
+    
+    st.download_button("⬇ Download Machine Report", pd.DataFrame([row]).to_csv(index=False), file_name=f"{sel_f}_Report.csv", mime="text/csv")
+    
+    def pick(h):
+        c = get_col(df,h)
+        return row.get(c,"-") if c else "-"
+
+    a, b, c, d = st.columns(4)
     
     with a:
         st.markdown("### 👤 Info")
@@ -303,16 +322,7 @@ a, b, c, d = st.columns(4)
                     st.markdown(f"<div style='background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #22c55e; font-weight: bold; font-size: 14px;'>🟢 {p[:3]}: {fmt_date(due_dt)}</div>", unsafe_allow_html=True)
             except:
                 st.markdown(f"<div style='margin-bottom: 10px; padding: 4px 10px;'>{p[:3]}: -</div>", unsafe_allow_html=True)
-
-# ================= MACHINE TRACKER (Fixed Indentation) =================
-st.markdown("---")
-st.subheader("🔍 Machine Tracker")
-
-machines = ["Select"] + list(df_f[fab_col].astype(str).unique())
-sel_f = st.selectbox("Select Machine for Deep Dive", machines, key="main_machine_tracker")
-
-if sel_f != "Select":
-    # --- Service History ---
+     # --- Service History ---
     st.markdown("### 📜 Service History")
     fab_col_service = get_col(service, "fabrication")
     svc_df = service[service[fab_col_service].astype(str) == str(sel_f)] if fab_col_service else pd.DataFrame()
@@ -324,17 +334,7 @@ if sel_f != "Select":
                 st.write(f"**Comment:** {r_s.get('Service Engineer Comments','-')}")
     else:
         st.info("No Service History Found")
-
-    # --- Customer & Machine Details ---
-    row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
-    
-    st.download_button("⬇ Download Machine Report", pd.DataFrame([row]).to_csv(index=False), file_name=f"{sel_f}_Report.csv", mime="text/csv")
-    
-    def pick(h):
-        c = get_col(df,h)
-        return row.get(c,"-") if c else "-"
-
-                   
+        
     # --- FOC Details ---
     st.markdown("### 📦 FOC Details")
     fab_col_foc = get_col(foc, "fabrication")

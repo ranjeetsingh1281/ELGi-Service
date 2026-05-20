@@ -126,7 +126,7 @@ col2.metric("Overdue", overdue_count)
 col3.metric("Current Month Due", current_month_count)
 col4.metric("Next Month Due", next_month_count)
 
-# ================= NEW: SERVICE URGENCY TRACKER (RADIO BUTTONS) =================
+# ================= URGENCY TRACKER =================
 st.markdown("---")
 st.header("🚨 Live Service Urgency Tracker")
 
@@ -143,28 +143,51 @@ status_mapping = {
 }
 target_status_col = status_mapping[selected_status]
 
-# Standard columns for display
 display_hint_cols = ["fabrication", "model", "customer", "location", "hmr"]
 disp_cols = [get_col(df, h) for h in display_hint_cols if get_col(df, h)]
+loc_col = get_col(df, "location") # Location column dhundhna
 
 if target_status_col:
-    # Filter based on flag (1, yes, etc)
+    # 1. Pehle Status ke hisab se filter karein
     flag_mask = df_f[target_status_col].astype(str).str.strip().str.lower().isin(["1", "1.0", "yes", "y", "true"])
     filtered_status_df = df_f[flag_mask].copy()
 
     if not filtered_status_df.empty:
-        st.write(f"🔍 **Total {len(filtered_status_df)} units** in **{selected_status}**")
-        st.dataframe(filtered_status_df[disp_cols + [target_status_col]], use_container_width=True, hide_index=True)
         
-        st.download_button(
-            label=f"📥 Download {selected_status} (CSV)",
-            data=filtered_status_df.to_csv(index=False).encode('utf-8'),
-            file_name=f"{selected_status[:5]}_list.csv",
-            mime='text/csv'
-        )
+        # --- NAYA: Location Filter Dropdown ---
+        if loc_col:
+            # Sirf unhi locations ki list banayein jahan currently pending kaam hai
+            unique_locs = [loc for loc in filtered_status_df[loc_col].astype(str).unique() if loc.strip() != ""]
+            locations = ["All Locations"] + sorted(unique_locs)
+            
+            sel_loc = st.selectbox("🌍 Filter by Location:", locations, key="urgency_loc_filter")
+            
+            # Agar koi specific location chuni gayi hai, toh data wapas filter karein
+            if sel_loc != "All Locations":
+                filtered_status_df = filtered_status_df[filtered_status_df[loc_col].astype(str) == sel_loc]
+
+        # 2. Location Filter ke baad final check
+        if not filtered_status_df.empty:
+            loc_text = f" in **{sel_loc}**" if (loc_col and sel_loc != "All Locations") else ""
+            st.write(f"🔍 **Total {len(filtered_status_df)} units** in **{selected_status}**{loc_text}")
+            
+            # Table Display
+            st.dataframe(filtered_status_df[disp_cols + [target_status_col]], use_container_width=True, hide_index=True)
+            
+            # Dynamic CSV Download (File ke naam mein bhi location aayega)
+            file_loc_name = f"_{sel_loc.replace(' ', '_')}" if (loc_col and sel_loc != "All Locations") else "_All_Locations"
+            
+            st.download_button(
+                label=f"📥 Download {selected_status} (CSV)",
+                data=filtered_status_df.to_csv(index=False).encode('utf-8'),
+                file_name=f"{selected_status[:5]}{file_loc_name}_list.csv",
+                mime='text/csv'
+            )
+        else:
+            st.info(f"👍 **{sel_loc}** mein **{selected_status}** ki koi machine pending nahi mili.")
     else:
         st.info(f"👍 No machines pending in **{selected_status}** category.")
-
+        
 # ================= NEW: PARTS DUE PLANNER (MULTISELECT) =================
 st.markdown("---")
 st.header("🛠️ Preventative Maintenance Planner")

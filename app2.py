@@ -146,6 +146,7 @@ target_status_col = status_mapping[selected_status]
 display_hint_cols = ["fabrication", "model", "customer", "location", "hmr"]
 disp_cols = [get_col(df, h) for h in display_hint_cols if get_col(df, h)]
 loc_col = get_col(df, "location")
+loc_col = get_col(df, "City")
 
 if target_status_col:
     # 1. Pehle Status ke hisab se filter karein

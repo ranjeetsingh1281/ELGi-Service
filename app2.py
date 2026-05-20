@@ -434,6 +434,17 @@ if loc_col:
     # 2. Coordinates Dictionary (Aapke main areas)
     # Aap isme apni zaroorat ke hisab se aur locations add kar sakte hain
     coords = {
+        "RANCHI": (23.3441, 85.3096),
+        "JAMSHEDPUR": (22.8046, 86.2029),
+        "DHANBAD": (23.7957, 86.4304),
+        "BOKARO": (23.6693, 86.1511),
+        "HAZARIBAGH": (23.9925, 85.3636),
+        "RAMGARH": (23.6300, 85.5100),
+        "PATNA": (25.5941, 85.1376),
+        "GAYA": (24.7914, 85.0002),
+        "BITHIYA": (26.8016, 84.5161), # Bettiah approx
+        "MUZAFFARPUR": (26.1209, 85.3647),
+        "BHAGALPUR": (25.2425, 87.0158)
         "Bokaro": (23.640657, 86.162947),
         "Chatra": (24.208676, 84.866295),
         "Deoghar": (24.481265, 86.700615),

@@ -273,7 +273,7 @@ if sel_f != "Select":
         for i, r_s in svc_df.iterrows():
             with st.expander(f"📅 {fmt_date(r_s.get('Call Logged Date'))} | {r_s.get('Call Type','-')}"):
                 st.write(f"**Call HMR:** {r_s.get('Call HMR','-')}")
-                st.write(f"**Comment:** {r_s.get('Service Engineer Comment','-')}")
+                st.write(f"**Comment:** {r_s.get('Service Engineer Comments','-')}")
     else:
         st.info("No Service History Found")
 

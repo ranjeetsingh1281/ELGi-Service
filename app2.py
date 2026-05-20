@@ -416,3 +416,70 @@ if connect_col:
 
     fig = px.pie(df_chart, names=connect_col)
     st.plotly_chart(fig, use_container_width=True)
+
+# ================= MACHINE POPULATION MAP =================
+st.markdown("---")
+st.subheader("🗺️ Live Machine Population Map")
+st.write("Jharkhand aur Bihar region mein machines ka count aur spread dekhein:")
+
+loc_col = get_col(df_f, "location")
+
+if loc_col:
+    # 1. Location-wise machine count nikalna
+    map_data = df_f.groupby(loc_col).size().reset_index(name='Machine Count')
+    
+    # Blank locations ko hatana
+    map_data = map_data[map_data[loc_col].astype(str).str.strip() != ""]
+
+    # 2. Coordinates Dictionary (Aapke main areas)
+    # Aap isme apni zaroorat ke hisab se aur locations add kar sakte hain
+    coords = {
+        "RANCHI": (23.3441, 85.3096),
+        "JAMSHEDPUR": (22.8046, 86.2029),
+        "DHANBAD": (23.7957, 86.4304),
+        "BOKARO": (23.6693, 86.1511),
+        "HAZARIBAGH": (23.9925, 85.3636),
+        "RAMGARH": (23.6300, 85.5100),
+        "PATNA": (25.5941, 85.1376),
+        "GAYA": (24.7914, 85.0002),
+        "BITHIYA": (26.8016, 84.5161), # Bettiah approx
+        "MUZAFFARPUR": (26.1209, 85.3647),
+        "BHAGALPUR": (25.2425, 87.0158)
+    }
+
+    # Location names ko upper case mein match karna taaki error na aaye
+    map_data['Location_Upper'] = map_data[loc_col].astype(str).str.upper().str.strip()
+    
+    # Lat-Lon apply karna
+    map_data['Lat'] = map_data['Location_Upper'].map(lambda x: coords.get(x, (None, None))[0])
+    map_data['Lon'] = map_data['Location_Upper'].map(lambda x: coords.get(x, (None, None))[1])
+
+    # Jo locations map nahi hui (jinke coords nahi hain), unhe alag karna
+    mapped_df = map_data.dropna(subset=['Lat', 'Lon'])
+
+    if not mapped_df.empty:
+        # 3. Interactive Bubble Map Generate Karna
+        fig_map = px.scatter_mapbox(
+            mapped_df, 
+            lat="Lat", 
+            lon="Lon", 
+            size="Machine Count", 
+            color="Machine Count",
+            hover_name=loc_col,
+            hover_data={"Lat": False, "Lon": False, "Machine Count": True},
+            color_continuous_scale=px.colors.sequential.Plotly3,
+            size_max=40,
+            zoom=6,
+            center={"lat": 23.3441, "lon": 85.3096}, # Default focus on Ranchi
+            mapbox_style="carto-darkmatter" # Premium dark map theme
+        )
+        
+        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        st.plotly_chart(fig_map, use_container_width=True)
+        
+        # Agar kuch locations choot gayi hain, toh user ko batana
+        missing_count = len(map_data) - len(mapped_df)
+        if missing_count > 0:
+            st.info(f"💡 Note: {missing_count} locations map par nahi dikh rahi hain kyunki unke coordinates abhi code mein add nahi hain.")
+    else:
+        st.warning("⚠️ Map draw karne ke liye coordinates nahi mile. Kripya dictionary mein sahi locations update karein.")

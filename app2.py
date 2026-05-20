@@ -375,3 +375,44 @@ amc_status_col = get_col(df, "amc status")
 if amc_status_col:
     counts = df[amc_status_col].value_counts()
     st.sidebar.write(counts)
+    
+#==============Service Trend Chart==============#
+st.subheader("📈 Service Trend")
+
+call_date_col = get_col(service, "Call Logged Date")
+
+if call_date_col:
+
+    svc = service.copy()
+    svc[call_date_col] = pd.to_datetime(svc[call_date_col], errors="coerce")
+
+    svc["Year"] = svc[call_date_col].dt.year
+    svc["Month"] = svc[call_date_col].dt.month
+
+    years = sorted(svc["Year"].dropna().unique())
+    sel_year = st.selectbox("Select Year", years)
+
+    months = list(range(1,13))
+    sel_month = st.selectbox("Select Month", months)
+
+    svc_f = svc[
+        (svc["Year"] == sel_year) &
+        (svc["Month"] == sel_month)
+    ]
+
+    trend = svc_f.groupby(call_date_col).size()
+
+    if not trend.empty:
+        st.line_chart(trend)
+    else:
+        st.warning("No Data for selected filter")        
+# ================= PIE CHART =================
+st.subheader("📊 Unit Status Chart")
+
+if connect_col:
+    allowed = ["Within 3 months","Above 3 months","P1",""]
+    df_chart = df_f[df_f[connect_col].isin(allowed)].copy()
+    df_chart[connect_col] = df_chart[connect_col].replace("", "Blank")
+
+    fig = px.pie(df_chart, names=connect_col)
+    st.plotly_chart(fig, use_container_width=True)

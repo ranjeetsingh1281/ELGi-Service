@@ -8,50 +8,26 @@ import requests
 
 st.set_page_config(layout="wide", page_title="Industrial Dashboard")
 
-# ================= 1. CLOUD SYNC SETUP =================
-# ⚠️ Apne naye Merged Excel file ka link yahan dalein jisme 4 sheets hon: Master, FOC, Service, AMC
-merged_url = "https://api.onedrive.com/v1.0/shares/u!Aapka_Naya_Merged_Link_Yahan/root/content?download=1"
-
-@st.cache_data(ttl=60)
-def load_merged_cloud_data():
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(merged_url, headers=headers, allow_redirects=True, timeout=30)
-        
-        if response.status_code == 200:
-            file_bytes = BytesIO(response.content)
-            with pd.ExcelFile(file_bytes, engine='openpyxl') as xls:
-                # 4 Sheets load karna
-                m = pd.read_excel(xls, sheet_name='Master').fillna("")
-                f = pd.read_excel(xls, sheet_name='FOC').fillna("")
-                s = pd.read_excel(xls, sheet_name='Service').fillna("")
-                a = pd.read_excel(xls, sheet_name='AMC').fillna("")
-            return m, f, s, a
-        else:
-            return None, None, None, None
-    except Exception as e:
-        return None, None, None, None
-
-# Load data
-df, foc, service, amc_df = load_merged_cloud_data()
-
-# ================= 2. LOCAL BACKUP (Agar Cloud Fail ho) =================
-if df is None or df.empty:
-    st.sidebar.warning("⚠️ Cloud Sync failed. Using local files.")
+# ================= 1. LOCAL DATA LOAD =================
+try:
     df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
     foc = pd.read_excel("Active_FOC.xlsx").fillna("")
     service = pd.read_excel("Service_Details.xlsx").fillna("")
-    try:
-        amc_df = pd.read_excel("AMC_Details.xlsx").fillna("")
-    except:
-        amc_df = pd.DataFrame()
-        st.sidebar.warning("AMC file not loaded")
+except Exception as e:
+    st.error(f"⚠️ Error loading main files: {e}")
+    df, foc, service = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+try:
+    amc_df = pd.read_excel("AMC_Details.xlsx").fillna("")
+except:
+    amc_df = pd.DataFrame()
+    st.sidebar.warning("⚠️ AMC file not loaded")
 
 # Clean Column Names
 for dataframe in [df, foc, service, amc_df]:
     if not dataframe.empty:
         dataframe.columns = dataframe.columns.str.strip()
-
+        
 # ================= 3. PREMIUM GLASS CSS =================
 st.markdown("""
 <style>

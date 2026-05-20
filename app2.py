@@ -115,12 +115,16 @@ overdue_col = get_col(df,"over due")
 curr_col   = get_col(df,"current month due")
 next_col   = get_col(df,"next month due")
 
-# ================= SIDEBAR FILTERS & REFRESH =================
+# ================= SIDEBAR FILTERS =================
 st.title("🏭 Industrial Dashboard")
-if st.sidebar.button("🔄 Sync Online Data"):
-    st.cache_data.clear()
+
+# --- Naya Refresh Button Sidebar Mein ---
+if st.sidebar.button("🔄 Refresh Data"):
+    # Agar aage chal kar cache use karna ho toh clear karne ke liye
+    st.cache_data.clear() 
     st.rerun()
 
+# Filters setup
 df[cust_col] = df[cust_col].astype(str)
 customers = ["All"] + sorted(df[cust_col].unique())
 sel = st.sidebar.selectbox("Customer Filter", customers)

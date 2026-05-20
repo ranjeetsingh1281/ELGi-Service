@@ -286,35 +286,53 @@ if sel_f != "Select":
         c = get_col(df,h)
         return row.get(c,"-") if c else "-"
 
-    a,b,c,d = st.columns(4)
+    a, b, c, d = st.columns(4)
+    
     with a:
         st.markdown("### 👤 Info")
-        st.write(f"**Cust:** {pick('customer')}")
-        st.write(f"**Model:** {pick('model')}")
-        st.write(f"**Loc:** {pick('location')}")
+        st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Cust:</b> {pick('customer')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Model:</b> {pick('model')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px;'><b>Loc:</b> {pick('location')}</div>", unsafe_allow_html=True)
+
     with b:
         st.markdown("### 🔧 Replacements")
-        for p in ["AF R Date","OF R Date","Oil R Date","AOS R Date","RGT R Date","Valvekit R Date"]:
-            st.write(f"{p[:5]}: {fmt_date(pick(p))}")
+        for p in ["AF R Date", "OF R Date", "Oil R Date", "AOS R Date", "RGT R Date", "Valvekit R Date"]:
+            st.markdown(f"<div style='margin-bottom: 12px; font-size: 15px; color: #cbd5e1;'><b>{p[:5]}:</b> {fmt_date(pick(p))}</div>", unsafe_allow_html=True)
+
     with c:
         st.markdown("### ⏳ Rem. Hours")
-        for p in ["AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"]:
+        for p in ["AF Rem", "OF Rem", "OIL Rem", "AOS Rem", "VK Rem"]:
             try:
                 hrs = float(pick(p))
-                if hrs < 0: st.error(f"{p[:3]}: {hrs}")
-                else: st.success(f"{p[:3]}: {hrs}")
+                if hrs < 0:
+                    # Red Error Pill
+                    st.markdown(f"<div style='background: rgba(239, 68, 68, 0.15); border-left: 4px solid #ef4444; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #ef4444; font-weight: bold; font-size: 14px;'>🔴 {p[:3]}: {hrs}</div>", unsafe_allow_html=True)
+                elif hrs < 500:
+                    # Amber Warning Pill
+                    st.markdown(f"<div style='background: rgba(245, 158, 11, 0.15); border-left: 4px solid #f59e0b; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #f59e0b; font-weight: bold; font-size: 14px;'>🟠 {p[:3]}: {hrs}</div>", unsafe_allow_html=True)
+                else:
+                    # Green Success Pill
+                    st.markdown(f"<div style='background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #22c55e; font-weight: bold; font-size: 14px;'>🟢 {p[:3]}: {hrs}</div>", unsafe_allow_html=True)
             except:
-                st.write(f"{p[:3]}: -")
+                st.markdown(f"<div style='margin-bottom: 10px; padding: 4px 10px;'>{p[:3]}: -</div>", unsafe_allow_html=True)
+
     with d:
         st.markdown("### 📅 Due Dates")
-        for p in ["AF DUE DATE","OF DUE DATE","OIL DUE DATE","AOS DUE DATE","VALVEKIT DUE DATE","RGT DUE DATE"]:
+        for p in ["AF DUE DATE", "OF DUE DATE", "OIL DUE DATE", "AOS DUE DATE", "VALVEKIT DUE DATE"]:
             try:
                 due_dt = pd.to_datetime(pick(p))
-                if due_dt < pd.Timestamp.today(): st.error(f"{p[:3]}: {fmt_date(due_dt)}")
-                else: st.success(f"{p[:3]}: {fmt_date(due_dt)}")
+                if due_dt < pd.Timestamp.today():
+                    # Red Error Pill
+                    st.markdown(f"<div style='background: rgba(239, 68, 68, 0.15); border-left: 4px solid #ef4444; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #ef4444; font-weight: bold; font-size: 14px;'>🔴 {p[:3]}: {fmt_date(due_dt)}</div>", unsafe_allow_html=True)
+                elif due_dt <= pd.Timestamp.today() + pd.Timedelta(days=30):
+                    # Amber Warning Pill
+                    st.markdown(f"<div style='background: rgba(245, 158, 11, 0.15); border-left: 4px solid #f59e0b; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #f59e0b; font-weight: bold; font-size: 14px;'>🟠 {p[:3]}: {fmt_date(due_dt)}</div>", unsafe_allow_html=True)
+                else:
+                    # Green Success Pill
+                    st.markdown(f"<div style='background: rgba(34, 197, 94, 0.15); border-left: 4px solid #22c55e; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; color: #22c55e; font-weight: bold; font-size: 14px;'>🟢 {p[:3]}: {fmt_date(due_dt)}</div>", unsafe_allow_html=True)
             except:
-                st.write(f"{p[:3]}: -")
-
+                st.markdown(f"<div style='margin-bottom: 10px; padding: 4px 10px;'>{p[:3]}: -</div>", unsafe_allow_html=True)
+                
     # --- FOC Details ---
     st.markdown("### 📦 FOC Details")
     fab_col_foc = get_col(foc, "fabrication")

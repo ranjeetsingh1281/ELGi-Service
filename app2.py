@@ -298,7 +298,7 @@ if sel_f != "Select":
             st.write(f"{p[:5]}: {fmt_date(pick(p))}")
     with c:
         st.markdown("### ⏳ Rem. Hours")
-        for p in ["AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem"]:
+        for p in ["AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem","RGT Rem"]:
             try:
                 hrs = float(pick(p))
                 if hrs < 0: st.error(f"{p[:3]}: {hrs}")
@@ -307,7 +307,7 @@ if sel_f != "Select":
                 st.write(f"{p[:3]}: -")
     with d:
         st.markdown("### 📅 Due Dates")
-        for p in ["AF DUE DATE","OF DUE DATE","OIL DUE DATE","AOS DUE DATE","VALVEKIT DUE DATE"]:
+        for p in ["AF DUE DATE","OF DUE DATE","OIL DUE DATE","AOS DUE DATE","VALVEKIT DUE DATE","RGT DUE DATE"]:
             try:
                 due_dt = pd.to_datetime(pick(p))
                 if due_dt < pd.Timestamp.today(): st.error(f"{p[:3]}: {fmt_date(due_dt)}")

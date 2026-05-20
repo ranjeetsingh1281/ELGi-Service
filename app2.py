@@ -334,7 +334,11 @@ if sel_f != "Select":
                 st.write(f"**Comment:** {r_s.get('Service Engineer Comments','-')}")
     else:
         st.info("No Service History Found")
-        
+        st.download_button("⬇ Download Machine Report", pd.DataFrame([row]).to_csv(index=False), file_name=f"{sel_f}_Report.csv", mime="text/csv")
+    
+    def pick(h):
+        c = get_col(df,h)
+        return row.get(c,"-") if c else "-"
     # --- FOC Details ---
     st.markdown("### 📦 FOC Details")
     fab_col_foc = get_col(foc, "fabrication")

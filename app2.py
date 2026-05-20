@@ -1,44 +1,70 @@
-#=============== Working as on 29-04-2026=================#
+# =============== INDUSTRIAL TRACKER PRO (UPDATED) =============== #
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 import plotly.express as px
 from io import BytesIO
+import requests
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="Industrial Dashboard")
 
-# ================= LOAD =================
-df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
-foc = pd.read_excel("Active_FOC.xlsx").fillna("")
-service = pd.read_excel("Service_Details.xlsx").fillna("")
-# ================= AMC LOAD =================
-try:
-    amc_df = pd.read_excel("AMC_Details.xlsx").fillna("")
-    amc_df.columns = amc_df.columns.str.strip()
-except:
-    amc_df = pd.DataFrame()
-    st.warning("AMC file not loaded")
+# ================= 1. CLOUD SYNC SETUP =================
+# ⚠️ Apne naye Merged Excel file ka link yahan dalein jisme 4 sheets hon: Master, FOC, Service, AMC
+merged_url = "https://api.onedrive.com/v1.0/shares/u!Aapka_Naya_Merged_Link_Yahan/root/content?download=1"
 
-df.columns = df.columns.str.strip()
-foc.columns = foc.columns.str.strip()
-service.columns = service.columns.str.strip()
-#=================Premium GlassCSS==============#
+@st.cache_data(ttl=60)
+def load_merged_cloud_data():
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(merged_url, headers=headers, allow_redirects=True, timeout=30)
+        
+        if response.status_code == 200:
+            file_bytes = BytesIO(response.content)
+            with pd.ExcelFile(file_bytes, engine='openpyxl') as xls:
+                # 4 Sheets load karna
+                m = pd.read_excel(xls, sheet_name='Master').fillna("")
+                f = pd.read_excel(xls, sheet_name='FOC').fillna("")
+                s = pd.read_excel(xls, sheet_name='Service').fillna("")
+                a = pd.read_excel(xls, sheet_name='AMC').fillna("")
+            return m, f, s, a
+        else:
+            return None, None, None, None
+    except Exception as e:
+        return None, None, None, None
 
+# Load data
+df, foc, service, amc_df = load_merged_cloud_data()
+
+# ================= 2. LOCAL BACKUP (Agar Cloud Fail ho) =================
+if df is None or df.empty:
+    st.sidebar.warning("⚠️ Cloud Sync failed. Using local files.")
+    df = pd.read_excel("Master_OD_Data.xlsx").fillna("")
+    foc = pd.read_excel("Active_FOC.xlsx").fillna("")
+    service = pd.read_excel("Service_Details.xlsx").fillna("")
+    try:
+        amc_df = pd.read_excel("AMC_Details.xlsx").fillna("")
+    except:
+        amc_df = pd.DataFrame()
+        st.sidebar.warning("AMC file not loaded")
+
+# Clean Column Names
+for dataframe in [df, foc, service, amc_df]:
+    if not dataframe.empty:
+        dataframe.columns = dataframe.columns.str.strip()
+
+# ================= 3. PREMIUM GLASS CSS =================
 st.markdown("""
 <style>
-
 /* ---------- GLOBAL DARK MODE ---------- */
 html, body, [class*="css"]  {
     background-color: #0f172a;
     color: #e2e8f0;
 }
-
 /* ---------- SIDEBAR ---------- */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #020617, #0f172a);
     border-right: 1px solid rgba(255,255,255,0.05);
 }
-
 /* ---------- GLASS CARD ---------- */
 .glass-card {
     background: rgba(255, 255, 255, 0.05);
@@ -48,26 +74,10 @@ section[data-testid="stSidebar"] {
     border: 1px solid rgba(255,255,255,0.1);
     transition: 0.3s ease;
 }
-
-/* Hover effect 🔥 */
 .glass-card:hover {
     transform: translateY(-5px) scale(1.01);
     box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
 }
-
-/* ---------- KPI CARDS ---------- */
-.kpi {
-    text-align: center;
-    padding: 15px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.04);
-    transition: 0.3s;
-}
-
-.kpi:hover {
-    transform: scale(1.05);
-}
-
 /* ---------- BUTTON ---------- */
 .stButton>button {
     border-radius: 10px;
@@ -75,613 +85,253 @@ section[data-testid="stSidebar"] {
     color: white;
     border: none;
 }
-
 /* ---------- SCROLLBAR ---------- */
-::-webkit-scrollbar {
-    width: 6px;
-}
-::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 10px;
-}
-
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+.block-container { padding-top: 1rem; }
 </style>
 """, unsafe_allow_html=True)
-# ================= DATE FORMAT =================
+
+# ================= HELPER FUNCTIONS =================
 def fmt_date(val):
     try:
         dt = pd.to_datetime(val, errors='coerce')
-        if pd.isna(dt):
-            return ""
+        if pd.isna(dt): return ""
         return dt.strftime("%d-%b-%y")
     except:
         return str(val)
 
-# ================= COLUMN FIND =================
-def get_col(df, keyword):
-    return next((c for c in df.columns if keyword.lower() in c.lower()), None)
+def get_col(data_f, keyword):
+    return next((c for c in data_f.columns if keyword.lower() in c.lower()), None)
 
+# Dynamic Column Matching
 cust_col = get_col(df, "customer")
 fab_col = get_col(df, "fabrication")
 connect_col = get_col(df, "connect_status")
 cat_col = get_col(df, "sub category")
 w_col = get_col(df, "warranty")
 amc_col = get_col(df, "amc")
-
-# ================= FILTER =================
-df[cust_col] = df[cust_col].astype(str)
-customers = ["All"] + sorted(df[cust_col].unique())
-sel = st.sidebar.selectbox("Customer", customers)
-
-df_f = df if sel == "All" else df[df[cust_col] == sel]
-
-# ================= DASHBOARD =================
-st.title("🏭 Industrial Dashboard")
-if st.button("🔄 Refresh Data"):
-    st.rerun()
-
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 1rem;
-}
-</style>
-""", unsafe_allow_html=True)
-# ================= KPI COUNTS (MASTER आधारित) =================
-
 overdue_col = get_col(df,"over due")
 curr_col   = get_col(df,"current month due")
 next_col   = get_col(df,"next month due")
 
-def count_flag(series):
-    
-    s = series.astype(str).str.strip().str.lower()
+# ================= SIDEBAR FILTERS & REFRESH =================
+st.title("🏭 Industrial Dashboard")
+if st.sidebar.button("🔄 Sync Online Data"):
+    st.cache_data.clear()
+    st.rerun()
 
-    return s.isin([
-        "1",
-        "1.0",
-        "yes",
-        "y",
-        "true"
-    ]).sum()
+df[cust_col] = df[cust_col].astype(str)
+customers = ["All"] + sorted(df[cust_col].unique())
+sel = st.sidebar.selectbox("Customer Filter", customers)
+df_f = df if sel == "All" else df[df[cust_col] == sel]
+
+# ================= KPI COUNTS =================
+def count_flag(series):
+    s = series.astype(str).str.strip().str.lower()
+    return s.isin(["1", "1.0", "yes", "y", "true"]).sum()
 
 overdue_count = count_flag(df_f[overdue_col]) if overdue_col else 0
 current_month_count = count_flag(df_f[curr_col]) if curr_col else 0
 next_month_count = count_flag(df_f[next_col]) if next_col else 0
 
-#============== Alert Banner (top warning) =================#
 if overdue_count > 0:
-
-    st.error(
-      f"⚠ {overdue_count} Overdue Units Need Attention"
-    )
+    st.error(f"⚠️ {overdue_count} Overdue Units Need Attention")
 else:
-    st.success(
-      "✔ No overdue units"
-    )
+    st.success("✔️ No overdue units")
 
-# ================= DISPLAY =================
 col1, col2, col3, col4 = st.columns(4)
-
 col1.metric("Total Units", len(df_f))
 col2.metric("Overdue", overdue_count)
 col3.metric("Current Month Due", current_month_count)
 col4.metric("Next Month Due", next_month_count)
 
-# ================= SIDEBAR =================
+# ================= NEW: SERVICE URGENCY TRACKER (RADIO BUTTONS) =================
+st.markdown("---")
+st.header("🚨 Live Service Urgency Tracker")
+
+selected_status = st.radio(
+    "Urgency Status Chunein:",
+    options=["⚠️ Over Due Machines", "📅 Current Month Due", "⏭️ Next Month Due"],
+    horizontal=True
+)
+
+status_mapping = {
+    "⚠️ Over Due Machines": overdue_col,
+    "📅 Current Month Due": curr_col,
+    "⏭️ Next Month Due": next_col
+}
+target_status_col = status_mapping[selected_status]
+
+# Standard columns for display
+display_hint_cols = ["fabrication", "model", "customer", "location", "hmr"]
+disp_cols = [get_col(df, h) for h in display_hint_cols if get_col(df, h)]
+
+if target_status_col:
+    # Filter based on flag (1, yes, etc)
+    flag_mask = df_f[target_status_col].astype(str).str.strip().str.lower().isin(["1", "1.0", "yes", "y", "true"])
+    filtered_status_df = df_f[flag_mask].copy()
+
+    if not filtered_status_df.empty:
+        st.write(f"🔍 **Total {len(filtered_status_df)} units** in **{selected_status}**")
+        st.dataframe(filtered_status_df[disp_cols + [target_status_col]], use_container_width=True, hide_index=True)
+        
+        st.download_button(
+            label=f"📥 Download {selected_status} (CSV)",
+            data=filtered_status_df.to_csv(index=False).encode('utf-8'),
+            file_name=f"{selected_status[:5]}_list.csv",
+            mime='text/csv'
+        )
+    else:
+        st.info(f"👍 No machines pending in **{selected_status}** category.")
+
+# ================= NEW: PARTS DUE PLANNER (MULTISELECT) =================
+st.markdown("---")
+st.header("🛠️ Preventative Maintenance Planner")
+
+# Dynamic Part Mapping based on Industrial DB
+part_mapping_raw = {
+    'Air Filter (AF)': get_col(df, 'AF DUE DATE'),
+    'Oil Filter (OF)': get_col(df, 'OF DUE DATE'),
+    'Compressor Oil (OIL)': get_col(df, 'OIL DUE DATE'),
+    'Separator (AOS)': get_col(df, 'AOS DUE DATE'),
+    'Valve Kit (VK)': get_col(df, 'VALVEKIT DUE DATE'),
+    'Regulator (RGT)': get_col(df, 'RGT DUE DATE')
+}
+part_mapping = {k: v for k, v in part_mapping_raw.items() if v} # Remove Nones
+
+if part_mapping:
+    selected_parts = st.multiselect(
+        "Select Parts to check Due Schedule:",
+        options=list(part_mapping.keys()),
+        default=[list(part_mapping.keys())[0]]
+    )
+
+    if selected_parts:
+        planner_df = df_f.copy()
+        date_cols = [part_mapping[p] for p in selected_parts]
+        
+        for col in date_cols:
+            planner_df[col] = pd.to_datetime(planner_df[col], errors='coerce')
+            
+        primary_col = part_mapping[selected_parts[0]]
+        planner_df = planner_df.dropna(subset=[primary_col])
+
+        if not planner_df.empty:
+            planner_df['Year'] = planner_df[primary_col].dt.year.astype(int)
+            planner_df['Month'] = planner_df[primary_col].dt.strftime('%B')
+
+            f_col1, f_col2 = st.columns(2)
+            with f_col1:
+                sel_year = st.selectbox("Select Year", sorted(planner_df['Year'].unique()))
+            with f_col2:
+                sel_month = st.selectbox("Select Month", planner_df[planner_df['Year'] == sel_year]['Month'].unique())
+
+            final_table = planner_df[(planner_df['Year'] == sel_year) & (planner_df['Month'] == sel_month)].copy()
+            
+            for col in date_cols:
+                final_table[col] = pd.to_datetime(final_table[col]).dt.strftime('%d-%b-%y')
+
+            st.write(f"🔍 **{len(final_table)} units** due in **{sel_month} {sel_year}**")
+            st.dataframe(final_table[disp_cols + date_cols], use_container_width=True, hide_index=True)
+            
+            st.download_button(
+                label="📥 Download Parts Due List",
+                data=final_table.to_csv(index=False).encode('utf-8'),
+                file_name=f"Parts_Due_{sel_month}_{sel_year}.csv",
+                mime='text/csv'
+            )
+        else:
+            st.info("No records found for the selected timeline.")
+
+# ================= SMART SEARCH =================
+st.markdown("---")
+st.subheader("🔎 Smart Search")
+search = st.text_input("Search by Fabrication / Customer / Model")
+
+if search:
+    result = df_f[df_f.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)]
+    if not result.empty:
+        st.dataframe(result.head(20), use_container_width=True)
+    else:
+        st.warning("No matching record found")
+
+# ================= MACHINE TRACKER (Fixed Indentation) =================
+st.markdown("---")
+st.subheader("🔍 Machine Tracker")
+
+machines = ["Select"] + list(df_f[fab_col].astype(str).unique())
+sel_f = st.selectbox("Select Machine for Deep Dive", machines, key="main_machine_tracker")
+
+if sel_f != "Select":
+    # --- Service History ---
+    st.markdown("### 📜 Service History")
+    fab_col_service = get_col(service, "fabrication")
+    svc_df = service[service[fab_col_service].astype(str) == str(sel_f)] if fab_col_service else pd.DataFrame()
+
+    if not svc_df.empty:
+        for i, r_s in svc_df.iterrows():
+            with st.expander(f"📅 {fmt_date(r_s.get('Call Logged Date'))} | {r_s.get('Call Type','-')}"):
+                st.write(f"**Call HMR:** {r_s.get('Call HMR','-')}")
+                st.write(f"**Comment:** {r_s.get('Service Engineer Comment','-')}")
+    else:
+        st.info("No Service History Found")
+
+    # --- Customer & Machine Details ---
+    row = df_f[df_f[fab_col].astype(str) == str(sel_f)].iloc[0]
+    
+    st.download_button("⬇ Download Machine Report", pd.DataFrame([row]).to_csv(index=False), file_name=f"{sel_f}_Report.csv", mime="text/csv")
+    
+    def pick(h):
+        c = get_col(df,h)
+        return row.get(c,"-") if c else "-"
+
+    a,b,c,d = st.columns(4)
+    with a:
+        st.markdown("### 👤 Info")
+        st.write(f"**Cust:** {pick('customer')}")
+        st.write(f"**Model:** {pick('model')}")
+        st.write(f"**Loc:** {pick('location')}")
+    with b:
+        st.markdown("### 🔧 Replacements")
+        for p in ["AF R Date","OF R Date","Oil R Date","AOS R Date","RGT R Date","Valvekit R Date"]:
+            st.write(f"{p[:5]}: {fmt_date(pick(p))}")
+    with c:
+        st.markdown("### ⏳ Rem. Hours")
+        for p in ["AF Rem","OF Rem","OIL Rem","AOS Rem","VK Rem"]:
+            try:
+                hrs = float(pick(p))
+                if hrs < 0: st.error(f"{p[:3]}: {hrs}")
+                else: st.success(f"{p[:3]}: {hrs}")
+            except:
+                st.write(f"{p[:3]}: -")
+    with d:
+        st.markdown("### 📅 Due Dates")
+        for p in ["AF DUE DATE","OF DUE DATE","OIL DUE DATE","AOS DUE DATE","VALVEKIT DUE DATE"]:
+            try:
+                due_dt = pd.to_datetime(pick(p))
+                if due_dt < pd.Timestamp.today(): st.error(f"{p[:3]}: {fmt_date(due_dt)}")
+                else: st.success(f"{p[:3]}: {fmt_date(due_dt)}")
+            except:
+                st.write(f"{p[:3]}: -")
+
+    # --- FOC Details ---
+    st.markdown("### 📦 FOC Details")
+    fab_col_foc = get_col(foc, "fabrication")
+    foc_df = foc[foc[fab_col_foc].astype(str) == str(sel_f)] if fab_col_foc else pd.DataFrame()
+    if not foc_df.empty:
+        st.dataframe(foc_df, use_container_width=True)
+    else:
+        st.info("No FOC Data Found")
+
+# ================= SIDEBAR WIDGETS =================
 if connect_col:
     st.sidebar.subheader("📊 Unit Status")
     st.sidebar.write(df_f[connect_col].value_counts())
 
-if cat_col:
-    st.sidebar.subheader("📊 Category")
-    st.sidebar.write(df_f[cat_col].value_counts())
-
-# ================= WARRANTY =================
-st.sidebar.subheader("📅 Warranty Expiry (Monthly)")
-
-w_end_col = get_col(df, "warranty end")
-
-if w_end_col:
-
-    df[w_end_col] = pd.to_datetime(df[w_end_col], errors='coerce')
-
-    df_w = df.dropna(subset=[w_end_col])
-
-    if not df_w.empty:
-
-        years = sorted(df_w[w_end_col].dt.year.dropna().unique())
-
-        year = st.sidebar.selectbox("Warranty Year", years)
-
-        df_wy = df_w[df_w[w_end_col].dt.year == year]
-
-        monthly = df_wy.groupby(df_wy[w_end_col].dt.month).size()
-
-        # 👉 Month name convert (premium look)
-        monthly.index = monthly.index.map(lambda x: pd.to_datetime(str(x), format="%m").strftime("%b"))
-        st.sidebar.write(monthly)
-
-# ================= AMC CLEAN FIX =================
-amc_status_col = "AMC Status"
-
-if amc_status_col in df.columns:
-
-    df[amc_status_col] = df[amc_status_col].astype(str).str.strip().str.lower()
-
-    def map_status(x):
-        if "expire" in x:
-            return "Expired"
-        elif "not" in x:
-            return "Not in AMC"
-        elif "amc" in x:
-            return "AMC"
-        elif x == "" or x == "nan":
-            return "Blank"
-        else:
-            return "Blank"
-
-    df["AMC Clean"] = df[amc_status_col].apply(map_status)
-
-else:
-    df["AMC Clean"] = "Blank"   # fallback (important)
-    
-# ================= AMC =================
+# AMC Tracking (Sidebar)
 st.sidebar.subheader("📆 AMC Status Summary")
-
-choice = st.sidebar.radio(
-    "Select AMC Category",
-    ["None","AMC","Expired","Not in AMC","Blank"]
-)
-
-# counts
-counts = df["AMC Clean"].value_counts()
-st.sidebar.write(counts)
-
-# 👉 MAIN DISPLAY
-if choice != "None":
-
-    st.subheader(f"📋 {choice} Details")
-
-    filtered_df = df[df["AMC Clean"] == choice]
-
-    if not filtered_df.empty:
-
-        st.success(f"{len(filtered_df)} Records Found")
-
-        st.dataframe(filtered_df, use_container_width=True)
-
-        csv = filtered_df.to_csv(index=False).encode("utf-8")
-
-        st.download_button(
-            label="⬇ Download AMC Data",
-            data=csv,
-            file_name=f"{choice}_AMC_Data.csv",
-            mime="text/csv"
-        )
-
-    else:
-        st.warning("No data found")
-#==================AMC New Section====================#
-
-st.subheader("📆 AMC Insights")
-
-if not amc_df.empty:
-
-    amc_date_col = get_col(amc_df, "amc end")
-
-    if amc_date_col:
-
-        amc_df[amc_date_col] = pd.to_datetime(amc_df[amc_date_col], errors="coerce")
-
-        today = pd.Timestamp.today()
-
-        active_amc = amc_df[amc_df[amc_date_col] > today]
-        expired_amc = amc_df[amc_df[amc_date_col] < today]
-
-        next_3_month = amc_df[
-            (amc_df[amc_date_col] >= today) &
-            (amc_df[amc_date_col] <= today + pd.Timedelta(days=90))
-        ]
-
-        c1,c2,c3 = st.columns(3)
-
-        c1.metric("Active AMC", len(active_amc))
-        c2.metric("Expired AMC", len(expired_amc))
-        c3.metric("Expiring in 3 Months", len(next_3_month))
-
-    else:
-        st.error("AMC End Date column not found ❌")
-
-else:
-    st.warning("AMC file empty or not loaded")
-# ================= CLICKABLE OVERDUE =================
-
-if overdue_col:
-
-    st.markdown("### ⚠️ Overdue Units")
-
-    flag_mask = (
-        df_f[overdue_col]
-        .astype(str)
-        .str.strip()
-        .isin(["1","1.0"])
-    )
-
-    overdue_df = df_f[flag_mask]
-
-    if not overdue_df.empty:
-
-        st.success(
-            f"{len(overdue_df)} Overdue Units Found"
-        )
-        st.download_button(
-            label="⬇ Download Overdue List",
-            data=overdue_df.to_csv(index=False),
-            file_name="Overdue_Units.csv",
-            mime="text/csv"
-        )
-        fab_col = get_col(df,"fabrication")
-
-        machines = (
-            overdue_df[fab_col]
-            .astype(str)
-            .unique()
-        )
-
-        sel_machine = st.selectbox(
-            "Select Overdue Machine",
-            machines,
-            key="overdue_machine_select"
-        )
-
-        if sel_machine:
-
-           filtered = overdue_df[
-    overdue_df[fab_col].astype(str)==sel_machine
-]
-
-if not filtered.empty:
-    r = filtered.iloc[0]
-else:
-    st.warning("No data found")
-    st.stop()
-
-   # ================= PREMIUM MACHINE CARD =================
-
-def fmt_date(v):
-    try:
-        d = pd.to_datetime(v, errors="coerce")
-        if pd.isna(d):
-            return "-"
-        return d.strftime("%d-%b-%y")
-    except:
-        return "-"
-        
-cust_col  = get_col(df, "Customer Name")
-model_col = get_col(df, "Model")
-loc_col   = get_col(df, "Location")
-
-filtered = overdue_df[
-    overdue_df[fab_col].astype(str) == str(sel_machine)
-]
-
-if not filtered.empty:
-    r = filtered.iloc[0]
-else:
-    st.warning("No machine data found")
-    st.stop()
-
-# helper
-def pick(col_hint):
-    c = get_col(df, col_hint)
-    if c and c in r:
-        return r[c]
-    return "-"
-
-
-# -------- COLUMN GROUPS --------
-
-customer_items = [
-    ("Customer", pick("customer")),
-    ("Model", pick("model")),
-    ("Location", pick("location")),
-]
-
-replacement_items = [
-    ("AF", fmt_date(pick("AF R Date"))),
-    ("OF", fmt_date(pick("OF R Date"))),
-    ("OIL", fmt_date(pick("Oil R Date"))),
-    ("AOS", fmt_date(pick("AOS R Date"))),
-    ("RGT", fmt_date(pick("RGT R Date"))),
-    ("Valve", fmt_date(pick("Valvekit R Date"))),
-    ("PF", fmt_date(pick("PF R DATE"))),
-    ("FF", fmt_date(pick("FF R DATE"))),
-    ("CF", fmt_date(pick("CF R DATE"))),
-]
-
-hours_items = [
-    ("AF", pick("AF Rem")),
-    ("OF", pick("OF Rem")),
-    ("OIL", pick("OIL Rem")),
-    ("AOS", pick("AOS Rem")),
-    ("VK", pick("VK Rem")),
-    ("RGT", pick("RGT Rem")),
-]
-
-due_items = [
-    ("AF", fmt_date(pick("AF DUE DATE"))),
-    ("OF", fmt_date(pick("OF DUE DATE"))),
-    ("OIL", fmt_date(pick("OIL DUE DATE"))),
-    ("AOS", fmt_date(pick("AOS DUE DATE"))),
-    ("VK", fmt_date(pick("VALVEKIT DUE DATE"))),
-    ("RGT", fmt_date(pick("RGT DUE DATE"))),
-    ("PF", fmt_date(pick("PF DUE DATE"))),
-    ("FF", fmt_date(pick("FF DUE DATE"))),
-    ("CF", fmt_date(pick("CF DUE DATE"))),
-]
-
-
-# -------- DISPLAY --------
-
-c1,c2,c3,c4 = st.columns(4)
-
-with c1:
-    st.metric("Total Units", len(df))
-
-with c2:
-    if overdue_count > 0:
-        st.error(f"🔴 Overdue\n{overdue_count}")
-    else:
-        st.success("No Overdue")
-
-with c3:
-    st.warning(f"🟠 Current Month\n{current_month_count}")
-
-with c4:
-    st.success(f"🟢 Next Month\n{next_month_count}")
-    
-    curr_col = get_col(df,"current month due")
-    next_col = get_col(df,"next month due")
-
-    ov = str(r[overdue_col]).strip()
-    cm = str(r[curr_col]).strip() if curr_col else "0"
-    nm = str(r[next_col]).strip() if next_col else "0"
-
-    if ov in ["1","1.0"]:
-        st.error("🔴 PRIORITY RED : OVERDUE")
-
-    elif cm in ["1","1.0"]:
-        st.warning("🟠 PRIORITY AMBER : CURRENT MONTH DUE")
-
-    elif nm in ["1","1.0"]:
-        st.success("🟢 PRIORITY GREEN : NEXT MONTH DUE")
-
-    else:
-        st.info("⚪ NORMAL")
-
-#================ Smart Search (top search box)=================#
-
-st.subheader("🔎 Smart Search")
-
-search = st.text_input(
-    "Search by Fabrication / Customer / Model"
-)
-
-if search:
-
-    result = df_f[
-        df_f.astype(str)
-        .apply(
-            lambda x: x.str.contains(
-                search,
-                case=False,
-                na=False
-            )
-        ).any(axis=1)
-    ]
-
-    if not result.empty:
-        st.write("Search Results")
-        st.dataframe(result.head(20))
-
-    else:
-        st.warning("No matching record found")
-        
-# ================= MACHINE TRACKER =================
-st.subheader("🔍 Machine Tracker")
-
-machines = ["Select"] + list(df_f[fab_col].astype(str).unique())
-
-sel_f = st.selectbox(
-    "Select Machine",
-    machines,
-    key="main_machine_tracker"
-)
-st.markdown("### 📜 Service History")
-
-fab_col_service = get_col(service, "fabrication")
-
-svc_df = service[
-    service[fab_col_service].astype(str) == str(sel_f)
-]
-
-if not svc_df.empty:
-
-    for i, r_s in svc_df.iterrows():
-
-        with st.expander(
-            f"📅 {fmt_date(r_s.get('Call Logged Date'))} | {r_s.get('Call Type','-')}"
-        ):
-            st.write(f"**Call HMR:** {r_s.get('Call HMR','-')}")
-            st.write(f"**Engineer Comment:** {r_s.get('Service Engineer Comment','-')}")
-
-else:
-    st.info("No Service History Found")
-
-if sel_f != "Select":
-
-    row = df_f[
-        df_f[fab_col].astype(str)==str(sel_f)
-    ].iloc[0]
-
-    # export button (INDENTED inside IF)
-    report_row = pd.DataFrame([row])
-
-    st.download_button(
-        "⬇ Download Machine Report",
-        report_row.to_csv(index=False),
-        file_name=f"{sel_f}_Machine_Report.csv",
-        mime="text/csv"
-    )
-
-    # show raw record
-    # show raw record
-    st.dataframe(pd.DataFrame([row]))
-
-    r = row
-
-    def pick(h):
-        c = get_col(df,h)
-        return r.get(c,"-") if c else "-"
-
-
-    a,b,c,d = st.columns(4)
-
-    with a:
-        st.markdown("### 👤 Customer Info")
-        st.write(f"Customer: {pick('customer')}")
-        st.write(f"Model: {pick('model')}")
-        st.write(f"Location: {pick('location')}")
-
-
-    with b:
-        st.markdown("### 🔧 Replacement Dates")
-
-        for p in [
-            "AF R Date","OF R Date","Oil R Date",
-            "AOS R Date","RGT R Date",
-            "Valvekit R Date",
-            "PF R DATE","FF R DATE","CF R DATE"
-        ]:
-            st.write(f"{p}: {fmt_date(pick(p))}")
-
-
-    with c:
-        st.markdown("### ⏳ Remaining Hours")
-
-        for p in [
-            "AF Rem. HMR Till date",
-            "OF Rem. HMR Till date",
-            "OIL Rem. HMR Till date",
-            "AOS Rem. HMR Till date",
-            "VK Rem. HMR Till date",
-            "RGT Rem. HMR Till date"
-        ]:
-            v = pick(p)
-
-            try:
-                hrs = float(v)
-
-                if hrs < 0:
-                    st.error(f"{p}: {hrs}")
-
-                elif hrs < 500:
-                    st.warning(f"{p}: {hrs}")
-
-                else:
-                    st.success(f"{p}: {hrs}")
-
-            except:
-                st.write(f"{p}: -")
-    with d:
-        st.markdown("### 📅 Due Dates")
-
-        for p in [
-            "AF DUE DATE","OF DUE DATE","OIL DUE DATE",
-            "AOS DUE DATE","VALVEKIT DUE DATE",
-            "RGT DUE DATE","PF DUE DATE",
-            "FF DUE DATE","CF DUE DATE"
-        ]:
-            try:
-                due_dt = pd.to_datetime(pick(p))
-
-                if due_dt < pd.Timestamp.today():
-                    st.error(f"{p}: {fmt_date(due_dt)}")
-
-                elif due_dt <= pd.Timestamp.today()+pd.Timedelta(days=30):
-                    st.warning(f"{p}: {fmt_date(due_dt)}")
-
-                else:
-                    st.success(f"{p}: {fmt_date(due_dt)}")
-
-            except:
-                st.write(f"{p}: -")
-#==========FOC Details==========#
-
-st.markdown("### 📦 FOC Details")
-
-fab_col_foc = get_col(foc, "fabrication")
-
-foc_df = foc[
-    foc[fab_col_foc].astype(str) == str(sel_f)
-]
-
-if not foc_df.empty:
-
-    st.dataframe(foc_df[[
-        "Created On",
-        "FOC Number",
-        "Work Order Number",
-        "Customer Name",
-        "FOC Type",
-        "Model",
-        "Fabrication Number",
-        "Failure Material Details",
-        "Part Code",
-        "ELGI Invoice No"
-    ]], use_container_width=True)
-
-else:
-    st.info("No FOC Data Found")
-
-    #==============Service Trend Chart==============#
-st.subheader("📈 Service Trend")
-
-call_date_col = get_col(service, "Call Logged Date")
-
-if call_date_col:
-
-    svc = service.copy()
-    svc[call_date_col] = pd.to_datetime(svc[call_date_col], errors="coerce")
-
-    svc["Year"] = svc[call_date_col].dt.year
-    svc["Month"] = svc[call_date_col].dt.month
-
-    years = sorted(svc["Year"].dropna().unique())
-    sel_year = st.selectbox("Select Year", years)
-
-    months = list(range(1,13))
-    sel_month = st.selectbox("Select Month", months)
-
-    svc_f = svc[
-        (svc["Year"] == sel_year) &
-        (svc["Month"] == sel_month)
-    ]
-
-    trend = svc_f.groupby(call_date_col).size()
-
-    if not trend.empty:
-        st.line_chart(trend)
-    else:
-        st.warning("No Data for selected filter")        
-# ================= PIE CHART =================
-st.subheader("📊 Unit Status Chart")
-
-if connect_col:
-    allowed = ["Within 3 months","Above 3 months","P1",""]
-    df_chart = df_f[df_f[connect_col].isin(allowed)].copy()
-    df_chart[connect_col] = df_chart[connect_col].replace("", "Blank")
-
-    fig = px.pie(df_chart, names=connect_col)
-    st.plotly_chart(fig, use_container_width=True)
+amc_status_col = get_col(df, "amc status")
+if amc_status_col:
+    counts = df[amc_status_col].value_counts()
+    st.sidebar.write(counts)

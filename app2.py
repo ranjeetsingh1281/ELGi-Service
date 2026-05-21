@@ -433,6 +433,8 @@ if loc_col:
 
     # 2. Coordinates Dictionary
     coords = {
+        "ADITYAPUR": (22.7901, 86.1657),
+        "BAHARAGORA": (22.2800, 86.7200),
         "BOKARO": (23.6406, 86.1629),
         "CHATRA": (24.2086, 84.8662),
         "DEOGHAR": (24.4812, 86.7006),
@@ -440,6 +442,7 @@ if loc_col:
         "DUMKA": (24.271, 87.2493),
         "GARHWA": (24.1735, 83.8123),
         "GIRIDIH": (24.1899, 86.3132),
+        "GAMHARIA": (22.8159, 86.0972),
         "GODDA": (24.829, 87.2159),
         "GUMLA": (23.0266, 84.5343),
         "HAZARIBAGH": (23.9885, 85.3667),
@@ -447,14 +450,17 @@ if loc_col:
         "KODARMA": (24.4638, 85.587),
         "LATEHAR": (23.7516, 84.5093),
         "LOHARDAGA": (23.4324, 84.6815),
+        "MOHANA": (25.01111, 88.1411),
         "PACHIM SIONGHUM": (22.5545, 85.8087),
         "PAKUR": (24.6358, 87.8347),
         "PALAMU": (24.0402, 84.0693),
         "PURBI SINGHBHUM": (22.7995, 86.1973),
+        "RAMGARH": (23.6348, 85.5264),
         "RANCHI": (23.363, 85.3403),
         "SAHIBGANJ": (25.2445, 87.6329),
         "SARAIKELA": (22.715, 85.9395),
-        "SIMDEGA": (22.6151, 84.5025)
+        "SIMDEGA": (22.6151, 84.5025),
+        "SUNDARGARH": (22.1254, 84.0451)
     }
 
     # Location names ko upper case mein match karna

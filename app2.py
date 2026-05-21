@@ -431,8 +431,7 @@ if loc_col:
     # Blank locations ko hatana
     map_data = map_data[map_data[loc_col].astype(str).str.strip() != ""]
 
-    # 2. Coordinates Dictionary (Aapke main areas)
-    # Aap isme apni zaroorat ke hisab se aur locations add kar sakte hain
+    # 2. Coordinates Dictionary
     coords = {
         "BOKARO": (23.6406, 86.1629),
         "CHATRA": (24.2086, 84.8662),
@@ -456,18 +455,16 @@ if loc_col:
         "SAHIBGANJ": (25.2445, 87.6329),
         "SARAIKELA": (22.715, 85.9395),
         "SIMDEGA": (22.6151, 84.5025)
-
-       
     }
 
-    # Location names ko upper case mein match karna taaki error na aaye
+    # Location names ko upper case mein match karna
     map_data['Location_Upper'] = map_data[loc_col].astype(str).str.upper().str.strip()
     
     # Lat-Lon apply karna
     map_data['Lat'] = map_data['Location_Upper'].map(lambda x: coords.get(x, (None, None))[0])
     map_data['Lon'] = map_data['Location_Upper'].map(lambda x: coords.get(x, (None, None))[1])
 
-    # Jo locations map nahi hui (jinke coords nahi hain), unhe alag karna
+    # Jo locations map nahi hui unhe alag karna
     mapped_df = map_data.dropna(subset=['Lat', 'Lon'])
 
     if not mapped_df.empty:
@@ -478,44 +475,32 @@ if loc_col:
             lon="Lon", 
             size="Machine Count", 
             color="Machine Count",
-            hover_name=loc_col,
+            hover_name="Location_Upper",
             hover_data={"Lat": False, "Lon": False, "Machine Count": True},
             color_continuous_scale=px.colors.sequential.Plotly3,
             size_max=40,
             zoom=6,
-            center={"lat": 23.3441, "lon": 85.3096}, # Default focus on Ranchi
-            mapbox_style="carto-darkmatter" # Premium dark map theme
+            center={"lat": 23.3441, "lon": 85.3096},
+            mapbox_style="carto-darkmatter"
         )
         
         fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-       # Plotly map render karna
         st.plotly_chart(fig_map, use_container_width=True)
         
-        # --- NAYA: Missing Locations ka Data Dikhane ka Logic ---
+        # --- Missing Locations Logic ---
         missing_df = map_data[map_data['Lat'].isna()].copy()
         missing_count = len(missing_df)
         
         if missing_count > 0:
             st.warning(f"⚠️ Note: {missing_count} locations map par nahi dikh rahi hain kyunki unke coordinates code mein nahi hain.")
             
-            # Expander banaya taaki screen par kachra na ho
             with st.expander("👀 Click here to see Missing Locations Details"):
                 st.write("Niche di gayi locations ko apni `coords` dictionary mein add karein:")
-                
-                # Column ka naam thoda clean kar diya display ke liye
                 display_missing = missing_df[['Location_Upper', 'Machine Count']].rename(
                     columns={'Location_Upper': 'Missing Location'}
                 )
-                
-                # Table format mein display karna
                 st.dataframe(display_missing, use_container_width=True, hide_index=True)
                 
     else:
         st.warning("⚠️ Map draw karne ke liye coordinates nahi mile. Kripya dictionary mein sahi locations update karein.")
-        
-        # Agar kuch locations choot gayi hain, toh user ko batana
-        missing_count = len(map_data) - len(mapped_df)
-        if missing_count > 0:
-            st.info(f"💡 Note: {missing_count} locations map par nahi dikh rahi hain kyunki unke coordinates abhi code mein add nahi hain.")
-    else:
-        st.warning("⚠️ Map draw karne ke liye coordinates nahi mile. Kripya dictionary mein sahi locations update karein.")
+      

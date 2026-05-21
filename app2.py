@@ -488,7 +488,30 @@ if loc_col:
         )
         
         fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+       # Plotly map render karna
         st.plotly_chart(fig_map, use_container_width=True)
+        
+        # --- NAYA: Missing Locations ka Data Dikhane ka Logic ---
+        missing_df = map_data[map_data['Lat'].isna()].copy()
+        missing_count = len(missing_df)
+        
+        if missing_count > 0:
+            st.warning(f"⚠️ Note: {missing_count} locations map par nahi dikh rahi hain kyunki unke coordinates code mein nahi hain.")
+            
+            # Expander banaya taaki screen par kachra na ho
+            with st.expander("👀 Click here to see Missing Locations Details"):
+                st.write("Niche di gayi locations ko apni `coords` dictionary mein add karein:")
+                
+                # Column ka naam thoda clean kar diya display ke liye
+                display_missing = missing_df[['Location_Upper', 'Machine Count']].rename(
+                    columns={'Location_Upper': 'Missing Location'}
+                )
+                
+                # Table format mein display karna
+                st.dataframe(display_missing, use_container_width=True, hide_index=True)
+                
+    else:
+        st.warning("⚠️ Map draw karne ke liye coordinates nahi mile. Kripya dictionary mein sahi locations update karein.")
         
         # Agar kuch locations choot gayi hain, toh user ko batana
         missing_count = len(map_data) - len(mapped_df)

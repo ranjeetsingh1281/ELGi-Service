@@ -177,16 +177,16 @@ m_p6b = is_c_cat & above_3m
 
 # 3. Data Table format banana (Exact screenshot format)
 priority_data = [
-    {"Sl. No.": "1", "Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", "No of OD Machines – As on Today": m_p1.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "2", "Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "3", "Priority": "Priority 2B", "Reason for Priority": "Non AMC M/cs with AOS Service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "4", "Priority": "Priority 3", "Reason for Priority": "HMR Collection - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p3.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "5", "Priority": "Priority 4A", "Reason for Priority": "HMR Collection - In Warranty M/cs, HMR date beyond 3 Months", "No of OD Machines – As on Today": m_p4a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "6", "Priority": "Priority 4B", "Reason for Priority": "HMR Collection - HMR date beyond 6 Months, Service Not Due", "No of OD Machines – As on Today": 0, "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "7", "Priority": "Priority 5A", "Reason for Priority": "AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "8", "Priority": "Priority 5B", "Reason for Priority": "Non AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "9", "Priority": "Priority 6A", "Reason for Priority": "C Category - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p6a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "10", "Priority": "Priority 6B", "Reason for Priority": "C Category - HMR Beyond 3 Months with Service due OD/FTM", "No of OD Machines – As on Today": m_p6b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0}
+    {"Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", "No of OD Machines – As on Today": m_p1.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 2B", "Reason for Priority": "Non AMC M/cs with AOS Service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 3", "Reason for Priority": "HMR Collection - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p3.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 4A", "Reason for Priority": "HMR Collection - In Warranty M/cs, HMR date beyond 3 Months", "No of OD Machines – As on Today": m_p4a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 4B", "Reason for Priority": "HMR Collection - HMR date beyond 6 Months, Service Not Due", "No of OD Machines – As on Today": 0, "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 5A", "Reason for Priority": "AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 5B", "Reason for Priority": "Non AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 6A", "Reason for Priority": "C Category - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p6a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Priority": "Priority 6B", "Reason for Priority": "C Category - HMR Beyond 3 Months with Service due OD/FTM", "No of OD Machines – As on Today": m_p6b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0}
 ]
 
 df_priority = pd.DataFrame(priority_data)

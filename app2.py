@@ -126,6 +126,74 @@ col2.metric("Overdue", overdue_count)
 col3.metric("Current Month Due", current_month_count)
 col4.metric("Next Month Due", next_month_count)
 
+# ================= NEW: PRIORITY MATRIX (OD/FTM TARGET) =================
+st.markdown("---")
+st.header("🎯 Priority Matrix (OD/FTM Target)")
+
+# 1. Columns ko safely dhundhna
+c_comm = get_col(df_f, "Nos of Month Comm")
+c_red = get_col(df_f, "Red Count")
+c_amc = get_col(df_f, "AMC Status")
+c_aos = get_col(df_f, "AOS Next Due") or get_col(df_f, "AOS DUE")
+c_mda = get_col(df_f, "MDA Total Hours")
+c_war = get_col(df_f, "Warranty")
+c_conn = get_col(df_f, "Connect_Status")
+c_cat = get_col(df_f, "Sub Category")
+
+# 2. Logic & Filters Setup (Default False index agar column na ho)
+false_series = pd.Series(False, index=df_f.index)
+
+# Priority 1: Commissioned <= 12 months AND Red Count >= 1
+m_p1 = (pd.to_numeric(df_f[c_comm], errors='coerce') <= 12) & (pd.to_numeric(df_f[c_red], errors='coerce') >= 1) if c_comm and c_red else false_series
+
+# Priority 2A & 2B: AOS Next Due < Current Month AND AMC Status
+curr_month_start = pd.Timestamp.today().replace(day=1)
+aos_past = pd.to_datetime(df_f[c_aos], errors='coerce') < curr_month_start if c_aos else false_series
+
+is_amc = df_f[c_amc].astype(str).str.strip().str.upper() == "AMC" if c_amc else false_series
+not_amc = df_f[c_amc].astype(str).str.strip().str.upper().isin(["NOT IN AMC", "EXPIRED"]) if c_amc else false_series
+
+m_p2a = is_amc & aos_past
+m_p2b = not_amc & aos_past
+
+# Priority 3: MDA Total Hours is Blank
+mda_blank = pd.to_numeric(df_f[c_mda], errors='coerce').isna() | (df_f[c_mda].astype(str).str.strip() == "") if c_mda else false_series
+m_p3 = mda_blank
+
+# Priority 4A: Warranty = In Standard Warranty AND Connect Status = Above 3 months
+is_std_war = df_f[c_war].astype(str).str.strip().str.upper().isin(["IN STANDARD WARRANTY", "STANDARD WARRANTY"]) if c_war else false_series
+above_3m = df_f[c_conn].astype(str).str.strip().str.upper().str.contains("ABOVE 3") if c_conn else false_series
+m_p4a = is_std_war & above_3m
+
+# Priority 5A & 5B: AMC Status AND Red Count >= 1
+red_od = pd.to_numeric(df_f[c_red], errors='coerce') >= 1 if c_red else false_series
+m_p5a = is_amc & red_od
+m_p5b = not_amc & red_od
+
+# Priority 6A & 6B: Sub Category = C
+is_c_cat = df_f[c_cat].astype(str).str.strip().str.upper() == "C" if c_cat else false_series
+m_p6a = is_c_cat & mda_blank
+m_p6b = is_c_cat & above_3m
+
+# 3. Data Table format banana (Exact screenshot format)
+priority_data = [
+    {"Sl. No.": "1", "Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", "No of OD Machines – As on Today": m_p1.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "2", "Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "3", "Priority": "Priority 2B", "Reason for Priority": "Non AMC M/cs with AOS Service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "4", "Priority": "Priority 3", "Reason for Priority": "HMR Collection - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p3.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "5", "Priority": "Priority 4A", "Reason for Priority": "HMR Collection - In Warranty M/cs, HMR date beyond 3 Months", "No of OD Machines – As on Today": m_p4a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "6", "Priority": "Priority 4B", "Reason for Priority": "HMR Collection - HMR date beyond 6 Months, Service Not Due", "No of OD Machines – As on Today": 0, "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "7", "Priority": "Priority 5A", "Reason for Priority": "AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "8", "Priority": "Priority 5B", "Reason for Priority": "Non AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "9", "Priority": "Priority 6A", "Reason for Priority": "C Category - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p6a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
+    {"Sl. No.": "10", "Priority": "Priority 6B", "Reason for Priority": "C Category - HMR Beyond 3 Months with Service due OD/FTM", "No of OD Machines – As on Today": m_p6b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": 0}
+]
+
+df_priority = pd.DataFrame(priority_data)
+
+# Dashboard par table render karna
+st.dataframe(df_priority, use_container_width=True, hide_index=True)
+
 # ================= URGENCY TRACKER =================
 st.markdown("---")
 st.header("🚨 Live Service Urgency Tracker")

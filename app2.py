@@ -177,17 +177,16 @@ is_c_cat = df_f[c_cat].astype(str).str.strip().str.upper() == "C" if c_cat else 
 m_p6a = is_c_cat & mda_blank
 m_p6b = is_c_cat & above_3m
 
-# --- NAYA LOGIC: Visited Current Month Mask ---
+# --- NAYA LOGIC: # --- NAYA LOGIC: Visited Current Month Mask (>0 Fix) ---
 if c_att:
-    att_dates = pd.to_datetime(df_f[c_att], errors='coerce')
-    curr_m = pd.Timestamp.today().month
-    curr_y = pd.Timestamp.today().year
-    # Jo dates is current mahine aur saal ki hain, unhe True mark karo
-    visited_mask = (att_dates.dt.month == curr_m) & (att_dates.dt.year == curr_y)
+    # Column ko numbers mein convert karega, aur jo blank/text hoga use 0 maan lega
+    att_values = pd.to_numeric(df_f[c_att], errors='coerce').fillna(0)
+    # Mask unhi machines ko True karega jinki value 0 se zyada (1, 2, 3...) hogi
+    visited_mask = att_values > 0
 else:
     visited_mask = false_series
 
-# 3. Data Table format banana (Ab Visited count automatically calculate hoga)
+# 3. Data Table format banana (Count ab >0 wale mask se hoga)
 priority_data = [
     {"Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", "No of OD Machines – As on Today": m_p1.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p1 & visited_mask).sum()},
     {"Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p2a & visited_mask).sum()},
@@ -204,8 +203,7 @@ priority_data = [
 df_priority = pd.DataFrame(priority_data)
 
 # Dashboard par table render karna
-st.dataframe(df_priority, use_container_width=True, hide_index=True)
-# ================= URGENCY TRACKER =================
+st.dataframe(df_priority, use_container_width=True, hide_index=True)# ================= URGENCY TRACKER =================
 st.markdown("---")
 st.header("🚨 Live Service Urgency Tracker")
 

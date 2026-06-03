@@ -511,11 +511,14 @@ if loc_col:
     # 2. Coordinates Dictionary
     coords = {
         "ADITYAPUR": (22.7901, 86.1657),
+        "ASANSOL": (23.6739, 86.9524),
+        "BARHI": (24.3080, 85.4143),
         "BAHARAGORA": (22.2800, 86.7200),
         "BARAGRAM": (23.2750, 86.5889),
         "BOKARO": (23.6406, 86.1629),
         "CHATRA": (24.2086, 84.8662),
         "DEOGHAR": (24.4812, 86.7006),
+        "DALTONGANJ": (24.0397, 84.0658),
         "DHANBAD": (23.7977, 86.4362),
         "DUMKA": (24.271, 87.2493),
         "GARHWA": (24.1735, 83.8123),

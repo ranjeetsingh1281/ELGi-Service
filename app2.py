@@ -131,7 +131,7 @@ col4.metric("Next Month Due", next_month_count)
 st.markdown("---")
 st.header("🎯 Priority Matrix (OD/FTM Target)")
 
-# --- NAYA LOGIC: Month Toggle Button ---
+# --- Month Toggle Button ---
 period_sel = st.radio("🗓️ Select Tracker Month:", ["Current Month", "Last Month"], horizontal=True)
 
 today_dt = pd.Timestamp.today()
@@ -140,18 +140,17 @@ if period_sel == "Current Month":
     col_visited_name = "Visited In Current Month"
     col_target_name = "Targeted/Planned Prev Month"
 else:
-    # 1 mahina peeche shift karna
     target_dt = today_dt - pd.DateOffset(months=1)
     col_visited_name = "Visited In Last Month"
     col_target_name = "Targeted/Planned Prev to Last Month"
 
-# Dynamic targets for filtering
+# Dynamic targets
 t_month = target_dt.month
 t_year = target_dt.year
 eval_month_start = target_dt.replace(day=1)
-month_label = target_dt.strftime('%B %Y') # e.g., "June 2026" or "May 2026"
+month_label = target_dt.strftime('%B %Y') 
 
-# 1. Columns ko safely dhundhna
+# 1. Columns
 c_comm = get_col(df_f, "Nos of Month Comm")
 c_red = get_col(df_f, "Red Count")
 c_amc = get_col(df_f, "AMC Status")
@@ -162,13 +161,11 @@ c_conn = get_col(df_f, "Connect_Status")
 c_cat = get_col(df_f, "Sub Category")
 c_att = get_col(df_f, "CUTTENT ATT") or get_col(df_f, "current att") or get_col(df_f, "att. date")
 
-# 2. Logic & Filters Setup
+# 2. Logic Setup
 false_series = pd.Series(False, index=df_f.index)
 
-# Priority 1
 m_p1 = (pd.to_numeric(df_f[c_comm], errors='coerce') <= 12) & (pd.to_numeric(df_f[c_red], errors='coerce') >= 1) if c_comm and c_red else false_series
 
-# Priority 2A & 2B (Ab eval_month_start selected mahine par depend karega)
 aos_past = pd.to_datetime(df_f[c_aos], errors='coerce') < eval_month_start if c_aos else false_series
 is_amc = df_f[c_amc].astype(str).str.strip().str.upper() == "AMC" if c_amc else false_series
 not_amc = df_f[c_amc].astype(str).str.strip().str.upper().isin(["NOT IN AMC", "EXPIRED"]) if c_amc else false_series
@@ -176,34 +173,29 @@ not_amc = df_f[c_amc].astype(str).str.strip().str.upper().isin(["NOT IN AMC", "E
 m_p2a = is_amc & aos_past
 m_p2b = not_amc & aos_past
 
-# Priority 3
 mda_blank = pd.to_numeric(df_f[c_mda], errors='coerce').isna() | (df_f[c_mda].astype(str).str.strip() == "") if c_mda else false_series
 m_p3 = mda_blank
 
-# Priority 4A
 is_std_war = df_f[c_war].astype(str).str.strip().str.upper().isin(["IN STANDARD WARRANTY", "STANDARD WARRANTY"]) if c_war else false_series
 above_3m = df_f[c_conn].astype(str).str.strip().str.upper().str.contains("ABOVE 3") if c_conn else false_series
 m_p4a = is_std_war & above_3m
 
-# Priority 5A & 5B
 red_od = pd.to_numeric(df_f[c_red], errors='coerce') >= 1 if c_red else false_series
 m_p5a = is_amc & red_od
 m_p5b = not_amc & red_od
 
-# Priority 6A & 6B
 is_c_cat = df_f[c_cat].astype(str).str.strip().str.upper() == "C" if c_cat else false_series
 m_p6a = is_c_cat & mda_blank
 m_p6b = is_c_cat & above_3m
 
-# --- VISITED TARGET MONTH (DYNAMIC DATE MATCH FIX) ---
+# Visited Logic
 if c_att:
     att_dates = pd.to_datetime(df_f[c_att], errors='coerce', dayfirst=True)
-    # Mask ab directly dropdown ke chune hue mahine par point karega
     visited_mask = (att_dates.dt.month == t_month) & (att_dates.dt.year == t_year)
 else:
     visited_mask = false_series
 
-# 3. Data Table format banana (Dynamic Headers)
+# 3. Data Table
 priority_data = [
     {"Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", f"No of OD Machines ({month_label})": m_p1.sum(), col_target_name: 0, col_visited_name: (m_p1 & visited_mask).sum()},
     {"Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", f"No of OD Machines ({month_label})": m_p2a.sum(), col_target_name: 0, col_visited_name: (m_p2a & visited_mask).sum()},

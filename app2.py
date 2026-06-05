@@ -131,6 +131,26 @@ col4.metric("Next Month Due", next_month_count)
 st.markdown("---")
 st.header("🎯 Priority Matrix (OD/FTM Target)")
 
+# --- NAYA LOGIC: Month Toggle Button ---
+period_sel = st.radio("🗓️ Select Tracker Month:", ["Current Month", "Last Month"], horizontal=True)
+
+today_dt = pd.Timestamp.today()
+if period_sel == "Current Month":
+    target_dt = today_dt
+    col_visited_name = "Visited In Current Month"
+    col_target_name = "Targeted/Planned Prev Month"
+else:
+    # 1 mahina peeche shift karna
+    target_dt = today_dt - pd.DateOffset(months=1)
+    col_visited_name = "Visited In Last Month"
+    col_target_name = "Targeted/Planned Prev to Last Month"
+
+# Dynamic targets for filtering
+t_month = target_dt.month
+t_year = target_dt.year
+eval_month_start = target_dt.replace(day=1)
+month_label = target_dt.strftime('%B %Y') # e.g., "June 2026" or "May 2026"
+
 # 1. Columns ko safely dhundhna
 c_comm = get_col(df_f, "Nos of Month Comm")
 c_red = get_col(df_f, "Red Count")
@@ -140,8 +160,6 @@ c_mda = get_col(df_f, "MDA Total Hours")
 c_war = get_col(df_f, "Warranty")
 c_conn = get_col(df_f, "Connect_Status")
 c_cat = get_col(df_f, "Sub Category")
-
-# Aapki file ka exact column name (CUTTENT ATT. DATE) handle karne ke liye
 c_att = get_col(df_f, "CUTTENT ATT") or get_col(df_f, "current att") or get_col(df_f, "att. date")
 
 # 2. Logic & Filters Setup
@@ -150,9 +168,8 @@ false_series = pd.Series(False, index=df_f.index)
 # Priority 1
 m_p1 = (pd.to_numeric(df_f[c_comm], errors='coerce') <= 12) & (pd.to_numeric(df_f[c_red], errors='coerce') >= 1) if c_comm and c_red else false_series
 
-# Priority 2A & 2B
-curr_month_start = pd.Timestamp.today().replace(day=1)
-aos_past = pd.to_datetime(df_f[c_aos], errors='coerce') < curr_month_start if c_aos else false_series
+# Priority 2A & 2B (Ab eval_month_start selected mahine par depend karega)
+aos_past = pd.to_datetime(df_f[c_aos], errors='coerce') < eval_month_start if c_aos else false_series
 is_amc = df_f[c_amc].astype(str).str.strip().str.upper() == "AMC" if c_amc else false_series
 not_amc = df_f[c_amc].astype(str).str.strip().str.upper().isin(["NOT IN AMC", "EXPIRED"]) if c_amc else false_series
 
@@ -178,31 +195,26 @@ is_c_cat = df_f[c_cat].astype(str).str.strip().str.upper() == "C" if c_cat else 
 m_p6a = is_c_cat & mda_blank
 m_p6b = is_c_cat & above_3m
 
-# --- NAYA LOGIC: VISITED CURRENT MONTH (DATE MATCH FIX) ---
+# --- VISITED TARGET MONTH (DYNAMIC DATE MATCH FIX) ---
 if c_att:
-    # dayfirst=True se Indian dates (DD-MM-YYYY) ekdum sahi parse hongi
     att_dates = pd.to_datetime(df_f[c_att], errors='coerce', dayfirst=True)
-    
-    curr_m = pd.Timestamp.today().month
-    curr_y = pd.Timestamp.today().year
-    
-    # Sirf wahi rows True hongi jinki attendance date is mahine aur is saal ki hai
-    visited_mask = (att_dates.dt.month == curr_m) & (att_dates.dt.year == curr_y)
+    # Mask ab directly dropdown ke chune hue mahine par point karega
+    visited_mask = (att_dates.dt.month == t_month) & (att_dates.dt.year == t_year)
 else:
     visited_mask = false_series
 
-# 3. Data Table format banana
+# 3. Data Table format banana (Dynamic Headers)
 priority_data = [
-    {"Sl. No.": "1", "Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", "No of OD Machines – As on Today": m_p1.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p1 & visited_mask).sum()},
-    {"Sl. No.": "2", "Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p2a & visited_mask).sum()},
-    {"Sl. No.": "3", "Priority": "Priority 2B", "Reason for Priority": "Non AMC M/cs with AOS Service Due (OD/FTM)", "No of OD Machines – As on Today": m_p2b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p2b & visited_mask).sum()},
-    {"Sl. No.": "4", "Priority": "Priority 3", "Reason for Priority": "HMR Collection - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p3.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p3 & visited_mask).sum()},
-    {"Sl. No.": "5", "Priority": "Priority 4A", "Reason for Priority": "HMR Collection - In Warranty M/cs, HMR date beyond 3 Months", "No of OD Machines – As on Today": m_p4a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p4a & visited_mask).sum()},
-    {"Sl. No.": "6", "Priority": "Priority 4B", "Reason for Priority": "HMR Collection - HMR date beyond 6 Months, Service Not Due", "No of OD Machines – As on Today": 0, "Targeted/Planned Prev Month": 0, "Visited Current Month": 0},
-    {"Sl. No.": "7", "Priority": "Priority 5A", "Reason for Priority": "AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p5a & visited_mask).sum()},
-    {"Sl. No.": "8", "Priority": "Priority 5B", "Reason for Priority": "Non AMC M/cs with Service Due - OD/FTM", "No of OD Machines – As on Today": m_p5b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p5b & visited_mask).sum()},
-    {"Sl. No.": "9", "Priority": "Priority 6A", "Reason for Priority": "C Category - HMR Not Available/Blank HMR/HMR Date", "No of OD Machines – As on Today": m_p6a.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p6a & visited_mask).sum()},
-    {"Sl. No.": "10", "Priority": "Priority 6B", "Reason for Priority": "C Category - HMR Beyond 3 Months with Service due OD/FTM", "No of OD Machines – As on Today": m_p6b.sum(), "Targeted/Planned Prev Month": 0, "Visited Current Month": (m_p6b & visited_mask).sum()}
+    {"Priority": "Priority 1", "Reason for Priority": "M/cs commissioned within 12 Months lying in OD, FTM", f"No of OD Machines ({month_label})": m_p1.sum(), col_target_name: 0, col_visited_name: (m_p1 & visited_mask).sum()},
+    {"Priority": "Priority 2A", "Reason for Priority": "AMC M/cs with AOS service Due (OD/FTM)", f"No of OD Machines ({month_label})": m_p2a.sum(), col_target_name: 0, col_visited_name: (m_p2a & visited_mask).sum()},
+    {"Priority": "Priority 2B", "Reason for Priority": "Non AMC M/cs with AOS Service Due (OD/FTM)", f"No of OD Machines ({month_label})": m_p2b.sum(), col_target_name: 0, col_visited_name: (m_p2b & visited_mask).sum()},
+    {"Priority": "Priority 3", "Reason for Priority": "HMR Collection - HMR Not Available/Blank HMR/HMR Date", f"No of OD Machines ({month_label})": m_p3.sum(), col_target_name: 0, col_visited_name: (m_p3 & visited_mask).sum()},
+    {"Priority": "Priority 4A", "Reason for Priority": "HMR Collection - In Warranty M/cs, HMR date beyond 3 Months", f"No of OD Machines ({month_label})": m_p4a.sum(), col_target_name: 0, col_visited_name: (m_p4a & visited_mask).sum()},
+    {"Priority": "Priority 4B", "Reason for Priority": "HMR Collection - HMR date beyond 6 Months, Service Not Due", f"No of OD Machines ({month_label})": 0, col_target_name: 0, col_visited_name: 0},
+    {"Priority": "Priority 5A", "Reason for Priority": "AMC M/cs with Service Due - OD/FTM", f"No of OD Machines ({month_label})": m_p5a.sum(), col_target_name: 0, col_visited_name: (m_p5a & visited_mask).sum()},
+    {"Priority": "Priority 5B", "Reason for Priority": "Non AMC M/cs with Service Due - OD/FTM", f"No of OD Machines ({month_label})": m_p5b.sum(), col_target_name: 0, col_visited_name: (m_p5b & visited_mask).sum()},
+    {"Priority": "Priority 6A", "Reason for Priority": "C Category - HMR Not Available/Blank HMR/HMR Date", f"No of OD Machines ({month_label})": m_p6a.sum(), col_target_name: 0, col_visited_name: (m_p6a & visited_mask).sum()},
+    {"Priority": "Priority 6B", "Reason for Priority": "C Category - HMR Beyond 3 Months with Service due OD/FTM", f"No of OD Machines ({month_label})": m_p6b.sum(), col_target_name: 0, col_visited_name: (m_p6b & visited_mask).sum()}
 ]
 
 df_priority = pd.DataFrame(priority_data)

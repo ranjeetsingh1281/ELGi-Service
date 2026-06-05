@@ -490,25 +490,7 @@ if cat_col:
         cat_counts = cat_counts.sort_values(by="Category")
         st.sidebar.dataframe(cat_counts, use_container_width=True, hide_index=True)
 
-# Unit Status (Sidebar)
-if connect_col:
-    st.sidebar.subheader("📊 Unit Status")
-    conn_data = df_f[df_f[connect_col].astype(str).str.strip() != ""]
-    if not conn_data.empty:
-        conn_counts = conn_data[connect_col].value_counts().reset_index()
-        conn_counts.columns = ["Connect_Status", "count"]
-        st.sidebar.dataframe(conn_counts, use_container_width=True, hide_index=True)
-
-# AMC Tracking (Sidebar)
-st.sidebar.subheader("📆 AMC Status Summary")
-amc_status_col = get_col(df_f, "amc status")
-if amc_status_col:
-    amc_data = df_f[df_f[amc_status_col].astype(str).str.strip() != ""]
-    if not amc_data.empty:
-        amc_counts = amc_data[amc_status_col].value_counts().reset_index()
-        amc_counts.columns = ["AMC Status", "count"]
-        st.sidebar.dataframe(amc_counts, use_container_width=True, hide_index=True)
-    
+   
 #==============Service Trend Chart==============#
 st.subheader("📈 Service Trend")
 

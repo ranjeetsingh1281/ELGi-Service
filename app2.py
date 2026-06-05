@@ -213,7 +213,6 @@ df_priority = pd.DataFrame(priority_data)
 
 # --- NAYA LOGIC: Total Row Calculation ---
 total_row = pd.DataFrame([{
-    "Sl. No.": "",
     "Priority": "TOTAL",
     "Reason for Priority": "",
     f"No of OD Machines ({month_label})": df_priority[f"No of OD Machines ({month_label})"].sum(),

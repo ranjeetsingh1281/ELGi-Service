@@ -219,6 +219,19 @@ priority_data = [
 
 df_priority = pd.DataFrame(priority_data)
 
+# --- NAYA LOGIC: Total Row Calculation ---
+total_row = pd.DataFrame([{
+    "Sl. No.": "",
+    "Priority": "TOTAL",
+    "Reason for Priority": "",
+    f"No of OD Machines ({month_label})": df_priority[f"No of OD Machines ({month_label})"].sum(),
+    col_target_name: df_priority[col_target_name].sum(),
+    col_visited_name: df_priority[col_visited_name].sum()
+}])
+
+# DataFrame ko jodna
+df_priority = pd.concat([df_priority, total_row], ignore_index=True)
+
 # Dashboard par table render karna
 st.dataframe(df_priority, use_container_width=True, hide_index=True)
 

@@ -310,93 +310,105 @@ if sel_mach == "All":
     else:
         st.error(f"⚠️ Excel sheet mein '{target_status_col}' column nahi mila. Kripya column name ki spelling check karein.")
 
-     # ==========================================================
-    # --- LOCATION & MAP DASHBOARD (MASTER BLOCK) ---
-    # ==========================================================
-    st.markdown("---")
-    st.subheader("🌍 Location Based Machine Population")
+   # ================= LOCATION BASED MACHINE POPULATION =================
 
-    # 1. Automatically find the correct column for City/Location
-    city_col = None
-    for col in f_master.columns:
-        if str(col).strip().lower() in ["city", "location", "site"]:
-            city_col = col
-            break
+st.markdown("---")
+st.subheader("🌍 Location Based Machine Population")
 
-    # 2. Draw all graphs and Maps if column is found
-    if city_col:
-        import re
-        import plotly.express as px
-        from geopy.geocoders import Nominatim
-        
-        # Data clean-up
-        city_data = f_master[city_col].dropna().astype(str)
-        if not city_data.empty:
-            # Clean names
-            city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
-            city_counts = city_data.value_counts().reset_index()
-            city_counts.columns = ["City", "Machine Count"]
-            
-            # --- ROW 1: BUBBLE & BAR GRAPHS ---
-            bio_col1, bio_col2 = st.columns(2)
-            with bio_col1:
-                fig_bio = px.scatter(
-                    city_counts, x="City", y="Machine Count", size="Machine Count", 
-                    color="City", hover_name="City", size_max=55, 
-                    title="Machine Population (Bubble Graph)"
-                )
-                fig_bio.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=450, showlegend=False)
-                st.plotly_chart(fig_bio, use_container_width=True)
+# City Coordinates Master
+city_coordinates = {
+    "RANCHI": [23.3441, 85.3096],
+    "RAMGARH": [23.6307, 85.5214],
+    "DHANBAD": [23.7957, 86.4304],
+    "BOKARO": [23.6693, 86.1511],
+    "JAMSHEDPUR": [22.8046, 86.2029],
+    "HAZARIBAGH": [23.9966, 85.3691],
+    "GIRIDIH": [24.1821, 86.2869],
+    "DEOGHAR": [24.4820, 86.6990],
+    "PALAMU": [24.0397, 84.0653],
+    "CHATRA": [24.2065, 84.8700],
+    "LATEHAR": [23.7446, 84.5043],
+    "LOHARDAGA": [23.4324, 84.6797],
+    "GUMLA": [23.0440, 84.5442],
+    "SIMDEGA": [22.6152, 84.5020],
+    "SAHIBGANJ": [25.2445, 87.6340],
+    "PAKUR": [24.6399, 87.8425],
+    "DUMKA": [24.2678, 87.2486],
+    "PATNA": [25.5941, 85.1376],
+    "GAYA": [24.7914, 85.0002],
+    "MUZAFFARPUR": [26.1209, 85.3647],
+    "BHAGALPUR": [25.2425, 86.9842],
+    "DARBHANGA": [26.1542, 85.8918],
+    "BEGUSARAI": [25.4182, 86.1272],
+    "PURNIA": [25.7771, 87.4753],
+    "KATIHAR": [25.5380, 87.5704],
+    "ARA": [25.5560, 84.6633],
+    "BIHARSHARIF": [25.1975, 85.5237]
+}
 
-            with bio_col2:
-                fig_bar = px.bar(
-                    city_counts, x="City", y="Machine Count", text="Machine Count",
-                    color="City", title="Machine Population (Bar Graph)"
-                )
-                fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=450, showlegend=False)
-                st.plotly_chart(fig_bar, use_container_width=True)
+# Find City Column
+city_col = None
 
-            # --- ROW 2: LIVE MAP ---
-            st.markdown("---")
-            st.subheader("🗺️ Live Machine Map")
-            
-            geolocator = Nominatim(user_agent="prime_power_crm")
-            
-            @st.cache_data(ttl=86400) # Cache to load fast on refresh
-            def get_coordinates(city_name):
-                try:
-                    loc = geolocator.geocode(f"{city_name}, India", timeout=5) 
-                    if loc:
-                        return loc.latitude, loc.longitude
-                except:
-                    pass
-                return None, None
+for col in df.columns:
+    if "city" in col.lower():
+        city_col = col
+        break
 
-            with st.spinner("🌍 Loading Map & Finding GPS Coordinates..."):
-                # Get GPS points
-                city_counts['Latitude'], city_counts['Longitude'] = zip(*city_counts['City'].apply(get_coordinates))
-                
-            map_data = city_counts.dropna(subset=['Latitude', 'Longitude'])
+if city_col:
 
-            if not map_data.empty:
-                fig_map = px.scatter_mapbox(
-                    map_data, lat="Latitude", lon="Longitude", size="Machine Count",
-                    color="Machine Count", hover_name="City",
-                    color_continuous_scale=px.colors.sequential.YlOrRd, size_max=35, zoom=5
-                )
-                fig_map.update_layout(
-                    mapbox_style="carto-darkmatter", margin={"r":0,"t":40,"l":0,"b":0}, 
-                    paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=500,
-                    title="Geographical Distribution"
-                )
-                st.plotly_chart(fig_map, use_container_width=True)
-            else:
-                st.warning("⚠️ Map ke liye kisi bhi city ke GPS coordinates nahi mil paye.")
-        else:
-            st.info("ℹ️ No location data available for the currently selected filters.")
+    map_df = df.copy()
+
+    map_df["City_Map"] = (
+        map_df[city_col]
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
+
+    map_df["lat"] = map_df["City_Map"].apply(
+        lambda x: city_coordinates.get(x, [None, None])[0]
+    )
+
+    map_df["lon"] = map_df["City_Map"].apply(
+        lambda x: city_coordinates.get(x, [None, None])[1]
+    )
+
+    map_df = map_df.dropna(subset=["lat", "lon"])
+
+    if len(map_df) > 0:
+
+        st.success(f"📍 {len(map_df)} Machines Mapped")
+
+        st.map(
+            map_df.rename(
+                columns={
+                    "lat": "latitude",
+                    "lon": "longitude"
+                }
+            )
+        )
+
+        city_summary = (
+            map_df.groupby(city_col)
+            .size()
+            .reset_index(name="Machine Count")
+            .sort_values(
+                "Machine Count",
+                ascending=False
+            )
+        )
+
+        st.markdown("### 📊 City Wise Machine Population")
+        st.dataframe(
+            city_summary,
+            use_container_width=True
+        )
+
     else:
-        st.error("⚠️ Could not find a 'City' or 'Location' column in your Master Data.")
+        st.warning("No matching city found in coordinate master.")
 
+else:
+    st.error("City column not found in Master Data.")
     
 # --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")

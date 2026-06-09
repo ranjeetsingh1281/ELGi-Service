@@ -317,6 +317,19 @@ if sel_mach == "All":
 import pandas as pd
 import streamlit as st
 
+st.subheader("DEBUG INFO")
+
+st.write("Rows:", len(df))
+st.write("Columns Count:", len(df.columns))
+
+for col in df.columns:
+    st.write(f"Column = [{col}]")
+
+try:
+    st.write(df.head())
+except Exception as e:
+    st.error(e)
+
 st.write("DATAFRAME COLUMNS")
 st.write(df.columns.tolist())
 st.markdown("---")

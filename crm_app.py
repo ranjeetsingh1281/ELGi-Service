@@ -216,6 +216,7 @@ if sel_mach == "All":
 
     if city_col:
         import re
+        import plotly.express as px
         from geopy.geocoders import Nominatim
         
         # 1. City data clean-up

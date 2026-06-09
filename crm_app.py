@@ -208,68 +208,64 @@ if sel_mach == "All":
                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
 
-            # ==========================================================
+    # ==========================================================
     # --- LOCATION BASED MACHINE POPULATION (CITY GRAPH) ---
     # ==========================================================
     st.markdown("---")
     st.subheader("🌍 Location Based Machine Population")
     
-    if "City" in f_master.columns:
+    # 1. Automatically find the correct column (ignoring spaces/case)
+    city_col = None
+    for col in f_master.columns:
+        if str(col).strip().lower() in ["city", "location", "site"]:
+            city_col = col
+            break
+            
+    # 2. Draw graphs if column is found
+    if city_col:
         import re
-        bio_col1, bio_col2 = st.columns(2)
         
-        # 1. Clean the 'City' column (Handle messy entries like 'DHANBAD, CONT PERSON...')
-        city_data = f_master["City"].dropna().astype(str)
-        # Extract just the pure city name before any commas, colons, or hyphens
-        city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
+        # Drop empty values and convert to string safely
+        city_data = f_master[city_col].dropna().astype(str)
         
-        # 2. Count the machines per city
-        city_counts = city_data.value_counts().reset_index()
-        city_counts.columns = ["City", "Machine Count"]
-        
-        with bio_col1:
-            # Biological / Organic Bubble Graph
-            fig_bio = px.scatter(
-                city_counts, 
-                x="City", 
-                y="Machine Count", 
-                size="Machine Count", 
-                color="City",
-                hover_name="City", 
-                size_max=55, # Bubble size
-                title="Machine Population (Biological/Bubble Graph)"
-            )
-            fig_bio.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color="white", 
-                height=450, 
-                showlegend=False,
-                xaxis_title="City Location",
-                yaxis_title="Number of Machines"
-            )
-            st.plotly_chart(fig_bio, use_container_width=True)
+        # Check if we actually have data to plot after dropping empties
+        if not city_data.empty:
+            # Clean up names (e.g., "DHANBAD, CONT..." becomes "Dhanbad")
+            city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
+            
+            city_counts = city_data.value_counts().reset_index()
+            city_counts.columns = ["City", "Machine Count"]
+            
+            bio_col1, bio_col2 = st.columns(2)
+            
+            with bio_col1:
+                fig_bio = px.scatter(
+                    city_counts, x="City", y="Machine Count", size="Machine Count", 
+                    color="City", hover_name="City", size_max=55, 
+                    title="Machine Population (Bubble Graph)"
+                )
+                fig_bio.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                    font_color="white", height=450, showlegend=False
+                )
+                st.plotly_chart(fig_bio, use_container_width=True)
 
-        with bio_col2:
-            # Standard Bar Graph View
-            fig_bar = px.bar(
-                city_counts, 
-                x="City", 
-                y="Machine Count", 
-                text="Machine Count",
-                color="City", 
-                title="Machine Population (Bar Graph)"
-            )
-            fig_bar.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)', 
-                font_color="white", 
-                height=450, 
-                showlegend=False,
-                xaxis_title="City Location",
-                yaxis_title="Number of Machines"
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            with bio_col2:
+                fig_bar = px.bar(
+                    city_counts, x="City", y="Machine Count", text="Machine Count",
+                    color="City", title="Machine Population (Bar Graph)"
+                )
+                fig_bar.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                    font_color="white", height=450, showlegend=False
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            # Shows this if column exists, but rows are blank
+            st.info(f"ℹ️ No location data available for the currently selected filters.")
+    else:
+        # Shows this if the column is totally missing from Excel
+        st.error(f"⚠️ Could not find a 'City' or 'Location' column in your Master Data.")
 
     with chart_col2:
         st.subheader("⭕ Due Service Overview")

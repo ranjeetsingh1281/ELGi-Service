@@ -350,7 +350,7 @@ city_coordinates = {
 city_col = None
 
 for col in df.columns:
-    if "city" in col.lower():
+    if "City" in col.lower():
         city_col = col
         break
 

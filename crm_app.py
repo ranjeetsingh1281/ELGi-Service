@@ -357,7 +357,7 @@ else:
         except:
             return None
 
-    map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
+    st.write(map_df["MAP_CITY"].unique()[:20])
 
     # Coordinates Master
     city_coordinates = {

@@ -317,6 +317,8 @@ if sel_mach == "All":
 import pandas as pd
 import streamlit as st
 
+st.write("DATAFRAME COLUMNS")
+st.write(df.columns.tolist())
 st.markdown("---")
 st.subheader("🌍 Location Based Machine Population")
 

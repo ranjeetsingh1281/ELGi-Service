@@ -5,3 +5,5 @@ plotly
 reportlab
 xlsxwriter
 geopy
+streamlit-folium
+folium

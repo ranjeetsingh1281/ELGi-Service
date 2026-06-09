@@ -324,30 +324,11 @@ map_df = master.copy()
 # Find City Column
 city_col = None
 
-m = folium.Map(
-    location=[23.5,85.5],
-    zoom_start=6
-)
 
-for _, r in city_summary.iterrows():
-
-    folium.CircleMarker(
-        location=[r["lat"], r["lon"]],
-        radius=max(8, r["Machine Count"]/3),
-        popup=f"""
-        <b>{r['MAP_CITY']}</b><br>
-        Machines: {r['Machine Count']}
-        """,
-        tooltip=r["MAP_CITY"],
-        fill=True
-    ).add_to(m)
-
-st_folium(
-    m,
-    width=1200,
-    height=500,
-    key="machine_population_map"
-)
+for col in map_df.columns:
+    if "city" in str(col).lower():
+        city_col = col
+        break
 
 if city_col:
 
@@ -395,6 +376,31 @@ if city_col:
     )
 
     city_summary = city_summary.dropna()
+
+    m = folium.Map(
+    location=[23.5, 85.5],
+    zoom_start=6
+)
+
+for _, r in city_summary.iterrows():
+
+    folium.CircleMarker(
+        location=[r["lat"], r["lon"]],
+        radius=max(8, r["Machine Count"]/3),
+        popup=f"""
+        <b>{r['MAP_CITY']}</b><br>
+        Machines: {r['Machine Count']}
+        """,
+        tooltip=r["MAP_CITY"],
+        fill=True
+    ).add_to(m)
+
+st_folium(
+    m,
+    width=1200,
+    height=500,
+    key="machine_population_map"
+)
 
     if not city_summary.empty:
 
@@ -647,32 +653,32 @@ if sel_mach != "All":
     with t4:
         st.error("🚨 Dues")
         st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
-st.markdown("---")
-st.subheader("🤖 Predictive Maintenance Engine")
-
-try:
-
-    avg_hrs = float(
-        m_data.get("Avg. Hrs", 1)
-    )
-
-except:
-    avg_hrs = 1
-
-pred1, pred2, pred3 = st.columns(3)
-
-# ================= OIL =================
-
-with pred1:
+    st.markdown("---")
+    st.subheader("🤖 Predictive Maintenance Engine")
 
     try:
 
-        oil_rem = float(
-            m_data.get(
-                "LIVE - Oil remaining",
+    avg_hrs = float(
+    m_data.get("Avg. Hrs", 1)
+    )
+
+    except:
+    avg_hrs = 1
+
+    pred1, pred2, pred3 = st.columns(3)
+
+        # ================= OIL =================
+
+    with pred1:
+
+    try:
+
+    oil_rem = float(
+    m_data.get(
+             "LIVE - Oil remaining",
                 0
             )
-        )
+         )
 
         oil_days = round(
             oil_rem / avg_hrs
@@ -690,15 +696,15 @@ with pred1:
                 f"🛢 Oil Due in {oil_days} Days"
             )
 
-    except:
+        except:
         st.info("Oil prediction unavailable")
 
 
-# ================= AOS =================
+        # ================= AOS =================
 
-with pred2:
+        with pred2:
 
-    try:
+        try:
 
         aos_rem = float(
             m_data.get(
@@ -723,15 +729,15 @@ with pred2:
                 f"🔧 AOS Due in {aos_days} Days"
             )
 
-    except:
+        except:
         st.info("AOS prediction unavailable")
 
 
-# ================= VALVE KIT =================
+        # ================= VALVE KIT =================
 
-with pred3:
+        with pred3:
 
-    try:
+        try:
 
         vk_rem = float(
             m_data.get(
@@ -756,17 +762,17 @@ with pred3:
                 f"⚙ Valve Kit Due in {vk_days} Days"
             )
 
-    except:
+        except:
         st.info("Valve Kit prediction unavailable")
         
-    # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
-    st.markdown("---")
-    st.subheader("🛠️ Recent Service Requests")
+        # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
+        st.markdown("---")
+        st.subheader("🛠️ Recent Service Requests")
     
-    # Column detection for Service file
-    svc_fab = find_col(service, ["fabrication", "fab no"])
+        # Column detection for Service file
+        svc_fab = find_col(service, ["fabrication", "fab no"])
     
-    if svc_fab:
+        if svc_fab:
         # Machine wise service history filter
         s_display = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
         

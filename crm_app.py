@@ -314,52 +314,25 @@ if sel_mach == "All":
 # LOCATION BASED MACHINE POPULATION
 # ==========================
 
-import pandas as pd
-import streamlit as st
-
-st.subheader("DEBUG INFO")
-
-st.write("Rows:", len(df))
-st.write("Columns Count:", len(df.columns))
-
-for col in df.columns:
-    st.write(f"Column = [{col}]")
-
-try:
-    st.write(df.head())
-except Exception as e:
-    st.error(e)
-
-st.write("DATAFRAME COLUMNS")
-st.write(df.columns.tolist())
 st.markdown("---")
 st.subheader("🌍 Location Based Machine Population")
 
-# Clean column names
-df.columns = df.columns.astype(str).str.strip()
+map_df = master.copy()
 
-# Auto detect city column
+# Find City Column
 city_col = None
 
-for col in df.columns:
-    if "City" in col.lower():
+for col in map_df.columns:
+    if "city" in str(col).lower():
         city_col = col
         break
 
-if city_col is None:
+if city_col:
 
-    st.error("❌ City column not found in Master Data")
+    map_df[city_col] = map_df[city_col].astype(str)
 
-else:
-
-    # Copy dataframe
-    map_df = df.copy()
-
-    # Extract district/city name
     def extract_city(x):
-
         try:
-
             parts = str(x).upper().split(",")
 
             if len(parts) >= 2:
@@ -370,80 +343,54 @@ else:
         except:
             return None
 
-    st.write(map_df["MAP_CITY"].unique()[:20])
+    map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
 
-    # Coordinates Master
-    city_coordinates = {
-
-        "RANCHI": [23.3441, 85.3096],
-        "RAMGARH": [23.6307, 85.5214],
-        "HAZARIBAGH": [23.9966, 85.3691],
-        "DHANBAD": [23.7957, 86.4304],
-        "BOKARO": [23.6693, 86.1511],
-        "JAMSHEDPUR": [22.8046, 86.2029],
-        "GIRIDIH": [24.1821, 86.2869],
-        "DEOGHAR": [24.4820, 86.6990],
-        "PALAMU": [24.0397, 84.0653],
-        "CHATRA": [24.2065, 84.8700],
-        "LATEHAR": [23.7446, 84.5043],
-        "LOHARDAGA": [23.4324, 84.6797],
-        "GUMLA": [23.0440, 84.5442],
-        "SIMDEGA": [22.6152, 84.5020],
-        "PAKUR": [24.6399, 87.8425],
-        "DUMKA": [24.2678, 87.2486],
-        "SAHIBGANJ": [25.2445, 87.6340],
-        "PATNA": [25.5941, 85.1376],
-        "GAYA": [24.7914, 85.0002],
-        "MUZAFFARPUR": [26.1209, 85.3647],
-        "BHAGALPUR": [25.2425, 86.9842],
-        "DARBHANGA": [26.1542, 85.8918],
-        "BEGUSARAI": [25.4182, 86.1272],
-        "PURNIA": [25.7771, 87.4753],
-        "KATIHAR": [25.5380, 87.5704],
-        "ARA": [25.5560, 84.6633],
-        "BIHARSHARIF": [25.1975, 85.5237]
-    }
-
-    # City Summary
     city_summary = (
         map_df.groupby("MAP_CITY")
         .size()
         .reset_index(name="Machine Count")
     )
 
-    # Coordinates
+    city_coordinates = {
+        "HAZARIBAGH":[23.9966,85.3691],
+        "DHANBAD":[23.7957,86.4304],
+        "JAMSHEDPUR":[22.8046,86.2029],
+        "RAMGARH":[23.6307,85.5214],
+        "RANCHI":[23.3441,85.3096],
+        "BOKARO":[23.6693,86.1511],
+        "PALAMU":[24.0397,84.0653],
+        "DEOGHAR":[24.4820,86.6990],
+        "GUMLA":[23.0440,84.5442],
+        "LATEHAR":[23.7446,84.5043]
+    }
+
     city_summary["lat"] = city_summary["MAP_CITY"].apply(
-        lambda x: city_coordinates.get(x, [None, None])[0]
+        lambda x: city_coordinates.get(x,[None,None])[0]
     )
 
     city_summary["lon"] = city_summary["MAP_CITY"].apply(
-        lambda x: city_coordinates.get(x, [None, None])[1]
+        lambda x: city_coordinates.get(x,[None,None])[1]
     )
 
     city_summary = city_summary.dropna()
 
-    if len(city_summary) > 0:
+    if not city_summary.empty:
 
         st.success(
-            f"📍 {city_summary['Machine Count'].sum()} Machines Mapped Across {len(city_summary)} Cities"
+            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
         )
 
-        # MAP
         st.map(
             city_summary.rename(
                 columns={
-                    "lat": "latitude",
-                    "lon": "longitude"
+                    "lat":"latitude",
+                    "lon":"longitude"
                 }
             )
         )
 
-        st.markdown("### 📊 City Wise Machine Population")
-
         st.dataframe(
-            city_summary[
-                ["MAP_CITY", "Machine Count"]
-            ].sort_values(
+            city_summary.sort_values(
                 "Machine Count",
                 ascending=False
             ),
@@ -453,9 +400,13 @@ else:
     else:
 
         st.warning(
-            "⚠ No city coordinates matched. Please update city master."
+            "No matching city coordinates found"
         )
-        
+
+else:
+
+    st.error("City column not found in Master sheet")
+    
 # --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")

@@ -208,71 +208,93 @@ if sel_mach == "All":
                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
 
-   # ==========================================================
-    # --- GEOGRAPHICAL MAP (GOOGLE MAP ALTERNATIVE) ---
+ # ==========================================================
+    # --- LOCATION & MAP DASHBOARD (MASTER BLOCK) ---
     # ==========================================================
     st.markdown("---")
-    st.subheader("🗺️ Live Machine Map")
+    st.subheader("🌍 Location Based Machine Population")
 
+    # 1. Automatically find the correct column for City/Location
+    city_col = None
+    for col in f_master.columns:
+        if str(col).strip().lower() in ["city", "location", "site"]:
+            city_col = col
+            break
+
+    # 2. Draw all graphs and Maps if column is found
     if city_col:
         import re
         import plotly.express as px
         from geopy.geocoders import Nominatim
         
-        # 1. City data clean-up
+        # Data clean-up
         city_data = f_master[city_col].dropna().astype(str)
-        city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
-        city_counts = city_data.value_counts().reset_index()
-        city_counts.columns = ["City", "Machine Count"]
-        
-        # 2. Setup Geocoder (Auto GPS Finder)
-        geolocator = Nominatim(user_agent="prime_power_crm")
-        
-        # Cache memory banayi hai taaki baar-baar internet use na ho aur app fast rahe
-        @st.cache_data(ttl=86400) # Cache for 24 hours
-        def get_coordinates(city_name):
-            try:
-                # Adding "India" to ensure it searches in the correct country
-                loc = geolocator.geocode(f"{city_name}, India", timeout=5) 
-                if loc:
-                    return loc.latitude, loc.longitude
-            except:
-                pass
-            return None, None
-
-        # 3. Getting coordinates automatically
-        with st.spinner("🌍 Loading Map & Finding GPS Coordinates... (Peheli baar thoda time lag sakta hai)"):
-            city_counts['Latitude'], city_counts['Longitude'] = zip(*city_counts['City'].apply(get_coordinates))
+        if not city_data.empty:
+            # Clean names
+            city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
+            city_counts = city_data.value_counts().reset_index()
+            city_counts.columns = ["City", "Machine Count"]
             
-        # Filter out cities where GPS wasn't found
-        map_data = city_counts.dropna(subset=['Latitude', 'Longitude'])
+            # --- ROW 1: BUBBLE & BAR GRAPHS ---
+            bio_col1, bio_col2 = st.columns(2)
+            with bio_col1:
+                fig_bio = px.scatter(
+                    city_counts, x="City", y="Machine Count", size="Machine Count", 
+                    color="City", hover_name="City", size_max=55, 
+                    title="Machine Population (Bubble Graph)"
+                )
+                fig_bio.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=450, showlegend=False)
+                st.plotly_chart(fig_bio, use_container_width=True)
 
-        if not map_data.empty:
-            # 4. Draw Interactive Map
-            fig_map = px.scatter_mapbox(
-                map_data, 
-                lat="Latitude", 
-                lon="Longitude", 
-                size="Machine Count",     # Bade circles zyada machines dikhayenge
-                color="Machine Count",    # Color shading
-                hover_name="City",
-                color_continuous_scale=px.colors.sequential.YlOrRd, # Yellow to Red color scale
-                size_max=35,
-                zoom=6,                   # Default zoom level (State view)
-            )
+            with bio_col2:
+                fig_bar = px.bar(
+                    city_counts, x="City", y="Machine Count", text="Machine Count",
+                    color="City", title="Machine Population (Bar Graph)"
+                )
+                fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", height=450, showlegend=False)
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            # --- ROW 2: LIVE MAP ---
+            st.markdown("---")
+            st.subheader("🗺️ Live Machine Map")
             
-            # Using a free open-source map style that looks great in Dark Mode
-            fig_map.update_layout(
-                mapbox_style="carto-darkmatter", 
-                margin={"r":0,"t":0,"l":0,"b":0}, # Removes extra borders
-                paper_bgcolor='rgba(0,0,0,0)', 
-                font_color="white",
-                height=500
-            )
-            st.plotly_chart(fig_map, use_container_width=True)
+            geolocator = Nominatim(user_agent="prime_power_crm")
+            
+            @st.cache_data(ttl=86400) # Cache to load fast on refresh
+            def get_coordinates(city_name):
+                try:
+                    loc = geolocator.geocode(f"{city_name}, India", timeout=5) 
+                    if loc:
+                        return loc.latitude, loc.longitude
+                except:
+                    pass
+                return None, None
+
+            with st.spinner("🌍 Loading Map & Finding GPS Coordinates..."):
+                # Get GPS points
+                city_counts['Latitude'], city_counts['Longitude'] = zip(*city_counts['City'].apply(get_coordinates))
+                
+            map_data = city_counts.dropna(subset=['Latitude', 'Longitude'])
+
+            if not map_data.empty:
+                fig_map = px.scatter_mapbox(
+                    map_data, lat="Latitude", lon="Longitude", size="Machine Count",
+                    color="Machine Count", hover_name="City",
+                    color_continuous_scale=px.colors.sequential.YlOrRd, size_max=35, zoom=5
+                )
+                fig_map.update_layout(
+                    mapbox_style="carto-darkmatter", margin={"r":0,"t":40,"l":0,"b":0}, 
+                    paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=500,
+                    title="Geographical Distribution"
+                )
+                st.plotly_chart(fig_map, use_container_width=True)
+            else:
+                st.warning("⚠️ Map ke liye kisi bhi city ke GPS coordinates nahi mil paye.")
         else:
-            st.warning("⚠️ Map ke liye kisi bhi city ke GPS coordinates nahi mil paye. Kripya apne City names check karein.")
-            
+            st.info("ℹ️ No location data available for the currently selected filters.")
+    else:
+        st.error("⚠️ Could not find a 'City' or 'Location' column in your Master Data.")
+        
 
     with chart_col2:
         st.subheader("⭕ Due Service Overview")

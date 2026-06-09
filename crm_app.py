@@ -633,137 +633,91 @@ if "Created On" in foc.columns:
         st.warning("Kripya kam se kam ek part dropdown se select karein.")
         
         
-# --- TRACKER & FOC LOGIC ---
-foc_display = pd.DataFrame() # Initializing to avoid error
+# ---------------- TRACKER & FOC LOGIC ----------------
+
+foc_display = pd.DataFrame()
 
 if sel_mach != "All":
-    m_data = master[master[mach_col].astype(str) == str(sel_mach)].iloc[0]
-    st.subheader(f"💎 Live Tracking: {sel_mach}")
-    
+
+    m_data = master[
+        master[mach_col].astype(str) == str(sel_mach)
+    ].iloc[0]
+
+    st.subheader(f"💎 Live Tracking : {sel_mach}")
+
     t1, t2, t3, t4 = st.columns(4)
+
     with t1:
-        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
-        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
+        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME','N/A')}")
+        st.write(f"**Contact:** {m_data.get('Contact No. 1','N/A')}")
+
     with t2:
-        st.warning("📅 Replacements")
-        for r in ["Oil R Date", "AFC R Date"]: st.write(f"**{r}:** {format_date(m_data.get(r))}")
+        st.warning("🔧 Replacements")
+        st.write(f"Oil R Date: {format_date(m_data.get('Oil R Date'))}")
+        st.write(f"AFC R Date: {format_date(m_data.get('AFC R Date'))}")
+
     with t3:
         st.success("⏳ Remaining")
-        st.write(f"**Oil Remaining:** {m_data.get('LIVE - Oil remaining', '0')}")
+        st.write(f"Oil Remaining: {m_data.get('LIVE - Oil remaining','0')}")
+
     with t4:
         st.error("🚨 Dues")
-        st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
+        st.write(
+            f"Oil Due: {format_date(m_data.get('OIL DUE DATE'))}"
+        )
+
+    # ==================================================
+    # PREDICTIVE MAINTENANCE ENGINE
+    # ==================================================
+
     st.markdown("---")
     st.subheader("🤖 Predictive Maintenance Engine")
 
     try:
+        oil_rem = float(
+            pd.to_numeric(
+                m_data.get("LIVE - Oil remaining", 0),
+                errors="coerce"
+            )
+        )
 
-    avg_hrs = float(
-    m_data.get("Avg. Hrs", 1)
-    )
+        afc_rem = float(
+            pd.to_numeric(
+                m_data.get("LIVE - AFC remaining", 0),
+                errors="coerce"
+            )
+        )
 
     except:
-    avg_hrs = 1
+        oil_rem = 0
+        afc_rem = 0
 
-    pred1, pred2, pred3 = st.columns(3)
+    p1, p2 = st.columns(2)
 
-        # ================= OIL =================
-
-    with pred1:
-
-    try:
-
-    oil_rem = float(
-    m_data.get(
-             "LIVE - Oil remaining",
-                0
-            )
-         )
-
-        oil_days = round(
-            oil_rem / avg_hrs
+    with p1:
+        st.metric(
+            "🔧 Oil Remaining Hours",
+            f"{oil_rem:,.0f}"
         )
 
-        if oil_days <= 30:
-
-            st.error(
-                f"🛢 Oil Due in {oil_days} Days"
-            )
-
-        else:
-
-            st.success(
-                f"🛢 Oil Due in {oil_days} Days"
-            )
-
-        except:
-        st.info("Oil prediction unavailable")
-
-
-        # ================= AOS =================
-
-        with pred2:
-
-        try:
-
-        aos_rem = float(
-            m_data.get(
-                "LIVE - AOS remaining",
-                0
-            )
+    with p2:
+        st.metric(
+            "🌬 AFC Remaining Hours",
+            f"{afc_rem:,.0f}"
         )
 
-        aos_days = round(
-            aos_rem / avg_hrs
+    if oil_rem < 500:
+        st.error(
+            "⚠ Oil service likely due soon"
         )
-
-        if aos_days <= 30:
-
-            st.error(
-                f"🔧 AOS Due in {aos_days} Days"
-            )
-
-        else:
-
-            st.warning(
-                f"🔧 AOS Due in {aos_days} Days"
-            )
-
-        except:
-        st.info("AOS prediction unavailable")
-
-
-        # ================= VALVE KIT =================
-
-        with pred3:
-
-        try:
-
-        vk_rem = float(
-            m_data.get(
-                "LIVE - VK remaining",
-                0
-            )
+    elif oil_rem < 1000:
+        st.warning(
+            "🟡 Oil service approaching"
         )
-
-        vk_days = round(
-            vk_rem / avg_hrs
+    else:
+        st.success(
+            "🟢 Oil service healthy"
         )
-
-        if vk_days <= 30:
-
-            st.error(
-                f"⚙ Valve Kit Due in {vk_days} Days"
-            )
-
-        else:
-
-            st.success(
-                f"⚙ Valve Kit Due in {vk_days} Days"
-            )
-
-        except:
-        st.info("Valve Kit prediction unavailable")
         
         # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
         st.markdown("---")

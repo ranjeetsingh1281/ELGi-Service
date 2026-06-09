@@ -208,6 +208,69 @@ if sel_mach == "All":
                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
 
+            # ==========================================================
+    # --- LOCATION BASED MACHINE POPULATION (CITY GRAPH) ---
+    # ==========================================================
+    st.markdown("---")
+    st.subheader("🌍 Location Based Machine Population")
+    
+    if "City" in f_master.columns:
+        import re
+        bio_col1, bio_col2 = st.columns(2)
+        
+        # 1. Clean the 'City' column (Handle messy entries like 'DHANBAD, CONT PERSON...')
+        city_data = f_master["City"].dropna().astype(str)
+        # Extract just the pure city name before any commas, colons, or hyphens
+        city_data = city_data.apply(lambda x: re.split(r'[,|:-]', x)[0].strip().title())
+        
+        # 2. Count the machines per city
+        city_counts = city_data.value_counts().reset_index()
+        city_counts.columns = ["City", "Machine Count"]
+        
+        with bio_col1:
+            # Biological / Organic Bubble Graph
+            fig_bio = px.scatter(
+                city_counts, 
+                x="City", 
+                y="Machine Count", 
+                size="Machine Count", 
+                color="City",
+                hover_name="City", 
+                size_max=55, # Bubble size
+                title="Machine Population (Biological/Bubble Graph)"
+            )
+            fig_bio.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color="white", 
+                height=450, 
+                showlegend=False,
+                xaxis_title="City Location",
+                yaxis_title="Number of Machines"
+            )
+            st.plotly_chart(fig_bio, use_container_width=True)
+
+        with bio_col2:
+            # Standard Bar Graph View
+            fig_bar = px.bar(
+                city_counts, 
+                x="City", 
+                y="Machine Count", 
+                text="Machine Count",
+                color="City", 
+                title="Machine Population (Bar Graph)"
+            )
+            fig_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color="white", 
+                height=450, 
+                showlegend=False,
+                xaxis_title="City Location",
+                yaxis_title="Number of Machines"
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
     with chart_col2:
         st.subheader("⭕ Due Service Overview")
         if warr_exp_col in f_master.columns:

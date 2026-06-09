@@ -6,7 +6,7 @@ from datetime import datetime
 from io import BytesIO
 
 # --- 1. MODERN PAGE CONFIG ---
-st.set_page_config(page_title="PRIME POWER CRM Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Portable CRM Tracker", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. GLASS UI & VISIBILITY CSS ---
 st.markdown("""

@@ -1,5 +1,3 @@
-import folium
-from streamlit_folium import st_folium
 import streamlit as st
 import pandas as pd
 import requests
@@ -324,7 +322,6 @@ map_df = master.copy()
 # Find City Column
 city_col = None
 
-
 for col in map_df.columns:
     if "city" in str(col).lower():
         city_col = col
@@ -377,31 +374,6 @@ if city_col:
 
     city_summary = city_summary.dropna()
 
-    m = folium.Map(
-    location=[23.5, 85.5],
-    zoom_start=6
-)
-
-for _, r in city_summary.iterrows():
-
-    folium.CircleMarker(
-        location=[r["lat"], r["lon"]],
-        radius=max(8, r["Machine Count"]/3),
-        popup=f"""
-        <b>{r['MAP_CITY']}</b><br>
-        Machines: {r['Machine Count']}
-        """,
-        tooltip=r["MAP_CITY"],
-        fill=True
-    ).add_to(m)
-
-st_folium(
-    m,
-    width=1200,
-    height=500,
-    key="machine_population_map"
-)
-
     if not city_summary.empty:
 
         st.success(
@@ -434,119 +406,6 @@ st_folium(
 else:
 
     st.error("City column not found in Master sheet")
-
-    
-    st.markdown("---")
-st.header("📦 FOC Analytics Center")
-
-# ==============================================
-# KPI Card
-# ==============================================
-
-k1,k2,k3,k4 = st.columns(4)
-
-k1.metric(
-    "Total FOC",
-    len(foc)
-)
-
-k2.metric(
-    "Customers",
-    foc["Customer Name"].nunique()
-)
-
-k3.metric(
-    "Part Codes",
-    foc["Part Code"].nunique()
-)
-
-k4.metric(
-    "FOC Types",
-    foc["FOC Type"].nunique()
-)
-
-# ==============================================
-# Top Chart
-# ==============================================
-
-top_parts = (
-    foc["Part Code"]
-    .value_counts()
-    .head(10)
-)
-
-fig_parts = px.bar(
-    x=top_parts.index,
-    y=top_parts.values,
-    title="Top Consumed Parts"
-)
-
-st.plotly_chart(
-    fig_parts,
-    use_container_width=True,
-    key="top_parts_chart"
-)
-
-# ==============================================
-# Failure Analysis
-# ==============================================
-
-top_failure = (
-    foc["Failure Material Details"]
-    .value_counts()
-    .head(10)
-)
-
-fig_failure = px.bar(
-    x=top_failure.values,
-    y=top_failure.index,
-    orientation="h",
-    title="Top Failure Materials"
-)
-
-st.plotly_chart(
-    fig_failure,
-    use_container_width=True,
-    key="failure_chart"
-)
-
-# ==============================================
-# Monthly FOC Trend
-# ==============================================
-if "Created On" in foc.columns:
-
-    foc["Created On"] = pd.to_datetime(
-        foc["Created On"],
-        errors="coerce"
-    )
-
-    foc_trend = (
-        foc.groupby(
-            foc["Created On"].dt.to_period("M")
-        )
-        .size()
-        .reset_index(name="Count")
-    )
-
-    foc_trend["Created On"] = (
-        foc_trend["Created On"]
-        .astype(str)
-    )
-
-    fig_trend = px.line(
-        foc_trend,
-        x="Created On",
-        y="Count",
-        markers=True,
-        title="Monthly FOC Trend"
-    )
-
-    st.plotly_chart(
-        fig_trend,
-        use_container_width=True,
-        key="foc_trend_chart"
-    )
-
     
 # --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")
@@ -633,100 +492,35 @@ if "Created On" in foc.columns:
         st.warning("Kripya kam se kam ek part dropdown se select karein.")
         
         
-# ---------------- TRACKER & FOC LOGIC ----------------
-
-foc_display = pd.DataFrame()
+# --- TRACKER & FOC LOGIC ---
+foc_display = pd.DataFrame() # Initializing to avoid error
 
 if sel_mach != "All":
-
-    m_data = master[
-        master[mach_col].astype(str) == str(sel_mach)
-    ].iloc[0]
-
-    st.subheader(f"💎 Live Tracking : {sel_mach}")
-
+    m_data = master[master[mach_col].astype(str) == str(sel_mach)].iloc[0]
+    st.subheader(f"💎 Live Tracking: {sel_mach}")
+    
     t1, t2, t3, t4 = st.columns(4)
-
     with t1:
-        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME','N/A')}")
-        st.write(f"**Contact:** {m_data.get('Contact No. 1','N/A')}")
-
+        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
+        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
     with t2:
-        st.warning("🔧 Replacements")
-        st.write(f"Oil R Date: {format_date(m_data.get('Oil R Date'))}")
-        st.write(f"AFC R Date: {format_date(m_data.get('AFC R Date'))}")
-
+        st.warning("📅 Replacements")
+        for r in ["Oil R Date", "AFC R Date"]: st.write(f"**{r}:** {format_date(m_data.get(r))}")
     with t3:
         st.success("⏳ Remaining")
-        st.write(f"Oil Remaining: {m_data.get('LIVE - Oil remaining','0')}")
-
+        st.write(f"**Oil Remaining:** {m_data.get('LIVE - Oil remaining', '0')}")
     with t4:
         st.error("🚨 Dues")
-        st.write(
-            f"Oil Due: {format_date(m_data.get('OIL DUE DATE'))}"
-        )
+        st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
 
-    # ==================================================
-    # PREDICTIVE MAINTENANCE ENGINE
-    # ==================================================
-
+    # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
     st.markdown("---")
-    st.subheader("🤖 Predictive Maintenance Engine")
-
-    try:
-        oil_rem = float(
-            pd.to_numeric(
-                m_data.get("LIVE - Oil remaining", 0),
-                errors="coerce"
-            )
-        )
-
-        afc_rem = float(
-            pd.to_numeric(
-                m_data.get("LIVE - AFC remaining", 0),
-                errors="coerce"
-            )
-        )
-
-    except:
-        oil_rem = 0
-        afc_rem = 0
-
-    p1, p2 = st.columns(2)
-
-    with p1:
-        st.metric(
-            "🔧 Oil Remaining Hours",
-            f"{oil_rem:,.0f}"
-        )
-
-    with p2:
-        st.metric(
-            "🌬 AFC Remaining Hours",
-            f"{afc_rem:,.0f}"
-        )
-
-    if oil_rem < 500:
-        st.error(
-            "⚠ Oil service likely due soon"
-        )
-    elif oil_rem < 1000:
-        st.warning(
-            "🟡 Oil service approaching"
-        )
-    else:
-        st.success(
-            "🟢 Oil service healthy"
-        )
-        
-        # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
-        st.markdown("---")
-        st.subheader("🛠️ Recent Service Requests")
+    st.subheader("🛠️ Recent Service Requests")
     
-        # Column detection for Service file
-        svc_fab = find_col(service, ["fabrication", "fab no"])
+    # Column detection for Service file
+    svc_fab = find_col(service, ["fabrication", "fab no"])
     
-        if svc_fab:
+    if svc_fab:
         # Machine wise service history filter
         s_display = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
         

@@ -356,6 +356,8 @@ if city_col:
         if city in txt:
             return city
 
+    
+
     return None
     
     map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)

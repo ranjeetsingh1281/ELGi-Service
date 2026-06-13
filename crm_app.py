@@ -335,9 +335,9 @@ if city_col:
     map_df[city_col] = map_df[city_col].astype(str)
 
     def extract_city(x):
-        txt = str(x).upper()
+    txt = str(x).upper()
 
-        city_master = [
+    city_master = [
         "HAZARIBAGH",
         "DHANBAD",
         "JAMSHEDPUR",

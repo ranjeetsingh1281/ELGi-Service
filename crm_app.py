@@ -377,44 +377,39 @@ if city_col:
 
     city_summary = city_summary.dropna()
 
-    m = folium.Map(
-    location=[23.5, 85.5],
-    zoom_start=6
-)
-
-for _, r in city_summary.iterrows():
-
-    folium.CircleMarker(
-        location=[r["lat"], r["lon"]],
-        radius=max(8, r["Machine Count"]/3),
-        popup=f"""
-        <b>{r['MAP_CITY']}</b><br>
-        Machines: {r['Machine Count']}
-        """,
-        tooltip=r["MAP_CITY"],
-        fill=True
-    ).add_to(m)
-
-st_folium(
-    m,
-    width=1200,
-    height=500,
-    key="machine_population_map"
-)
+    city_summary = city_summary.dropna()
 
     if not city_summary.empty:
 
-        st.success(
-            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
+        m = folium.Map(
+            location=[23.5, 85.5],
+            zoom_start=6
         )
 
-        st.map(
-            city_summary.rename(
-                columns={
-                    "lat":"latitude",
-                    "lon":"longitude"
-                }
-            )
+        for _, r in city_summary.iterrows():
+
+            folium.CircleMarker(
+                location=[r["lat"], r["lon"]],
+                radius=max(8, r["Machine Count"] / 3),
+                popup=f"""
+                <b>{r['MAP_CITY']}</b><br>
+                Machines: {r['Machine Count']}
+                """,
+                tooltip=r["MAP_CITY"],
+                fill=True,
+                color="red",
+                fill_opacity=0.7
+            ).add_to(m)
+
+        st_folium(
+            m,
+            width=1200,
+            height=500,
+            key="machine_population_map"
+        )
+
+        st.success(
+            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
         )
 
         st.dataframe(
@@ -429,8 +424,6 @@ st_folium(
 
         st.warning(
             "No matching city coordinates found"
-        )
-
 else:
 
     st.error("City column not found in Master sheet")
@@ -726,9 +719,11 @@ if sel_mach != "All":
         # Column detection for Service file
         svc_fab = find_col(service, ["fabrication", "fab no"])
     
-        if svc_fab:
-        # Machine wise service history filter
-        s_display = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
+    if svc_fab:
+
+        s_display = service[
+        service[svc_fab].astype(str) == str(sel_mach)
+        ].copy()
         
         if not s_display.empty:
             # Date sorting taaki latest pehle dikhe

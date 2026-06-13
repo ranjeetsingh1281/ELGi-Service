@@ -1,5 +1,3 @@
-import folium
-from streamlit_folium import st_folium
 import streamlit as st
 import pandas as pd
 import requests
@@ -316,45 +314,52 @@ if sel_mach == "All":
 # LOCATION BASED MACHINE POPULATION
 # ==========================
 
+import pandas as pd
+import streamlit as st
+
+st.subheader("DEBUG INFO")
+
+st.write("Rows:", len(df))
+st.write("Columns Count:", len(df.columns))
+
+for col in df.columns:
+    st.write(f"Column = [{col}]")
+
+try:
+    st.write(df.head())
+except Exception as e:
+    st.error(e)
+
+st.write("DATAFRAME COLUMNS")
+st.write(df.columns.tolist())
 st.markdown("---")
 st.subheader("🌍 Location Based Machine Population")
 
-map_df = master.copy()
+# Clean column names
+df.columns = df.columns.astype(str).str.strip()
 
-# Find City Column
+# Auto detect city column
 city_col = None
 
-m = folium.Map(
-    location=[23.5,85.5],
-    zoom_start=6
-)
+for col in df.columns:
+    if "City" in col.lower():
+        city_col = col
+        break
 
-for _, r in city_summary.iterrows():
+if city_col is None:
 
-    folium.CircleMarker(
-        location=[r["lat"], r["lon"]],
-        radius=max(8, r["Machine Count"]/3),
-        popup=f"""
-        <b>{r['MAP_CITY']}</b><br>
-        Machines: {r['Machine Count']}
-        """,
-        tooltip=r["MAP_CITY"],
-        fill=True
-    ).add_to(m)
+    st.error("❌ City column not found in Master Data")
 
-st_folium(
-    m,
-    width=1200,
-    height=500,
-    key="machine_population_map"
-)
+else:
 
-if city_col:
+    # Copy dataframe
+    map_df = df.copy()
 
-    map_df[city_col] = map_df[city_col].astype(str)
-
+    # Extract district/city name
     def extract_city(x):
+
         try:
+
             parts = str(x).upper().split(",")
 
             if len(parts) >= 2:
@@ -365,54 +370,80 @@ if city_col:
         except:
             return None
 
-    map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
+    st.write(map_df["MAP_CITY"].unique()[:20])
 
+    # Coordinates Master
+    city_coordinates = {
+
+        "RANCHI": [23.3441, 85.3096],
+        "RAMGARH": [23.6307, 85.5214],
+        "HAZARIBAGH": [23.9966, 85.3691],
+        "DHANBAD": [23.7957, 86.4304],
+        "BOKARO": [23.6693, 86.1511],
+        "JAMSHEDPUR": [22.8046, 86.2029],
+        "GIRIDIH": [24.1821, 86.2869],
+        "DEOGHAR": [24.4820, 86.6990],
+        "PALAMU": [24.0397, 84.0653],
+        "CHATRA": [24.2065, 84.8700],
+        "LATEHAR": [23.7446, 84.5043],
+        "LOHARDAGA": [23.4324, 84.6797],
+        "GUMLA": [23.0440, 84.5442],
+        "SIMDEGA": [22.6152, 84.5020],
+        "PAKUR": [24.6399, 87.8425],
+        "DUMKA": [24.2678, 87.2486],
+        "SAHIBGANJ": [25.2445, 87.6340],
+        "PATNA": [25.5941, 85.1376],
+        "GAYA": [24.7914, 85.0002],
+        "MUZAFFARPUR": [26.1209, 85.3647],
+        "BHAGALPUR": [25.2425, 86.9842],
+        "DARBHANGA": [26.1542, 85.8918],
+        "BEGUSARAI": [25.4182, 86.1272],
+        "PURNIA": [25.7771, 87.4753],
+        "KATIHAR": [25.5380, 87.5704],
+        "ARA": [25.5560, 84.6633],
+        "BIHARSHARIF": [25.1975, 85.5237]
+    }
+
+    # City Summary
     city_summary = (
         map_df.groupby("MAP_CITY")
         .size()
         .reset_index(name="Machine Count")
     )
 
-    city_coordinates = {
-        "HAZARIBAGH":[23.9966,85.3691],
-        "DHANBAD":[23.7957,86.4304],
-        "JAMSHEDPUR":[22.8046,86.2029],
-        "RAMGARH":[23.6307,85.5214],
-        "RANCHI":[23.3441,85.3096],
-        "BOKARO":[23.6693,86.1511],
-        "PALAMU":[24.0397,84.0653],
-        "DEOGHAR":[24.4820,86.6990],
-        "GUMLA":[23.0440,84.5442],
-        "LATEHAR":[23.7446,84.5043]
-    }
-
+    # Coordinates
     city_summary["lat"] = city_summary["MAP_CITY"].apply(
-        lambda x: city_coordinates.get(x,[None,None])[0]
+        lambda x: city_coordinates.get(x, [None, None])[0]
     )
 
     city_summary["lon"] = city_summary["MAP_CITY"].apply(
-        lambda x: city_coordinates.get(x,[None,None])[1]
+        lambda x: city_coordinates.get(x, [None, None])[1]
     )
 
     city_summary = city_summary.dropna()
 
-    if not city_summary.empty:
+    if len(city_summary) > 0:
 
         st.success(
-            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
+            f"📍 {city_summary['Machine Count'].sum()} Machines Mapped Across {len(city_summary)} Cities"
         )
 
+        # MAP
         st.map(
             city_summary.rename(
                 columns={
-                    "lat":"latitude",
-                    "lon":"longitude"
+                    "lat": "latitude",
+                    "lon": "longitude"
                 }
             )
         )
 
+        st.markdown("### 📊 City Wise Machine Population")
+
         st.dataframe(
-            city_summary.sort_values(
+            city_summary[
+                ["MAP_CITY", "Machine Count"]
+            ].sort_values(
                 "Machine Count",
                 ascending=False
             ),
@@ -422,126 +453,9 @@ if city_col:
     else:
 
         st.warning(
-            "No matching city coordinates found"
+            "⚠ No city coordinates matched. Please update city master."
         )
-
-else:
-
-    st.error("City column not found in Master sheet")
-
-    
-    st.markdown("---")
-st.header("📦 FOC Analytics Center")
-
-# ==============================================
-# KPI Card
-# ==============================================
-
-k1,k2,k3,k4 = st.columns(4)
-
-k1.metric(
-    "Total FOC",
-    len(foc)
-)
-
-k2.metric(
-    "Customers",
-    foc["Customer Name"].nunique()
-)
-
-k3.metric(
-    "Part Codes",
-    foc["Part Code"].nunique()
-)
-
-k4.metric(
-    "FOC Types",
-    foc["FOC Type"].nunique()
-)
-
-# ==============================================
-# Top Chart
-# ==============================================
-
-top_parts = (
-    foc["Part Code"]
-    .value_counts()
-    .head(10)
-)
-
-fig_parts = px.bar(
-    x=top_parts.index,
-    y=top_parts.values,
-    title="Top Consumed Parts"
-)
-
-st.plotly_chart(
-    fig_parts,
-    use_container_width=True,
-    key="top_parts_chart"
-)
-
-# ==============================================
-# Failure Analysis
-# ==============================================
-
-top_failure = (
-    foc["Failure Material Details"]
-    .value_counts()
-    .head(10)
-)
-
-fig_failure = px.bar(
-    x=top_failure.values,
-    y=top_failure.index,
-    orientation="h",
-    title="Top Failure Materials"
-)
-
-st.plotly_chart(
-    fig_failure,
-    use_container_width=True,
-    key="failure_chart"
-)
-
-# ==============================================
-# Monthly FOC Trend
-# ==============================================
-if "Created On" in foc.columns:
-
-    foc["Created On"] = pd.to_datetime(
-        foc["Created On"],
-        errors="coerce"
-    )
-
-    foc_trend = (
-        foc.groupby(
-            foc["Created On"].dt.to_period("M")
-        )
-        .size()
-        .reset_index(name="Count")
-    )
-
-    foc_trend["Created On"] = (
-        foc_trend["Created On"]
-        .astype(str)
-    )
-
-    fig_trend = px.line(
-        foc_trend,
-        x="Created On",
-        y="Count",
-        markers=True,
-        title="Monthly FOC Trend"
-    )
-
-    st.plotly_chart(
-        fig_trend,
-        use_container_width=True,
-        key="foc_trend_chart"
-    )
-
-    
+        
 # --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
     st.markdown("---")
     st.header("🛠️ Preventative Maintenance & Parts Due Planner")
@@ -647,118 +561,7 @@ if sel_mach != "All":
     with t4:
         st.error("🚨 Dues")
         st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
-st.markdown("---")
-st.subheader("🤖 Predictive Maintenance Engine")
 
-try:
-
-    avg_hrs = float(
-        m_data.get("Avg. Hrs", 1)
-    )
-
-except:
-    avg_hrs = 1
-
-pred1, pred2, pred3 = st.columns(3)
-
-# ================= OIL =================
-
-with pred1:
-
-    try:
-
-        oil_rem = float(
-            m_data.get(
-                "LIVE - Oil remaining",
-                0
-            )
-        )
-
-        oil_days = round(
-            oil_rem / avg_hrs
-        )
-
-        if oil_days <= 30:
-
-            st.error(
-                f"🛢 Oil Due in {oil_days} Days"
-            )
-
-        else:
-
-            st.success(
-                f"🛢 Oil Due in {oil_days} Days"
-            )
-
-    except:
-        st.info("Oil prediction unavailable")
-
-
-# ================= AOS =================
-
-with pred2:
-
-    try:
-
-        aos_rem = float(
-            m_data.get(
-                "LIVE - AOS remaining",
-                0
-            )
-        )
-
-        aos_days = round(
-            aos_rem / avg_hrs
-        )
-
-        if aos_days <= 30:
-
-            st.error(
-                f"🔧 AOS Due in {aos_days} Days"
-            )
-
-        else:
-
-            st.warning(
-                f"🔧 AOS Due in {aos_days} Days"
-            )
-
-    except:
-        st.info("AOS prediction unavailable")
-
-
-# ================= VALVE KIT =================
-
-with pred3:
-
-    try:
-
-        vk_rem = float(
-            m_data.get(
-                "LIVE - VK remaining",
-                0
-            )
-        )
-
-        vk_days = round(
-            vk_rem / avg_hrs
-        )
-
-        if vk_days <= 30:
-
-            st.error(
-                f"⚙ Valve Kit Due in {vk_days} Days"
-            )
-
-        else:
-
-            st.success(
-                f"⚙ Valve Kit Due in {vk_days} Days"
-            )
-
-    except:
-        st.info("Valve Kit prediction unavailable")
-        
     # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
     st.markdown("---")
     st.subheader("🛠️ Recent Service Requests")

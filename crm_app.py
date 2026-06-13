@@ -423,7 +423,7 @@ if city_col:
     else:
 
         st.warning(
-            "No matching city coordinates found"
+            "No matching city coordinates found")
 else:
 
     st.error("City column not found in Master sheet")

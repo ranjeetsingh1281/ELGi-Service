@@ -1,493 +1,96 @@
-import streamlit as st
-import pandas as pd
-import requests
-import plotly.express as px
-from datetime import datetime
-from io import BytesIO
+# ==========================
+# LOCATION BASED MACHINE POPULATION
+# ==========================
 
-# --- 1. MODERN PAGE CONFIG ---
-st.set_page_config(page_title="Portable CRM Tracker", layout="wide", initial_sidebar_state="expanded")
-
-# --- 2. GLASS UI & VISIBILITY CSS ---
-st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #8b0000 0%, #dc143c 100%);
-        color: #f8fafc !important;
-    }
-    [data-testid="stSidebar"] {
-        background-color: rgba(60, 0, 0, 0.95) !important;
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    [data-testid="stSidebar"] label p { color: #ffffff !important; font-weight: 700 !important; }
-    [data-testid="stSidebar"] div[data-baseweb="select"] div { color: #0f172a !important; font-weight: 600 !important; }
-    [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px);
-        border-radius: 12px;
-        padding: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    div[data-testid="stMetricValue"] > div { color: #ffffff !important; font-weight: 800; }
-    h1, h2, h3, h4, p, span { color: #ffffff !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 3. REFRESH BUTTON & HEADER ---
-head_col1, head_col2 = st.columns([0.8, 0.2])
-with head_col1:
-    st.markdown('<h1 style="color:#ffffff; font-size:2.5rem; font-weight:800; margin-bottom:0;">PRIME POWER CRM PRO</h1>', unsafe_allow_html=True)
-with head_col2:
-    st.write("") 
-    if st.button("🔄 Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
 st.markdown("---")
+st.subheader("🌍 Location Based Machine Population")
 
-# --- 1. SINGLE MERGED FILE CONNECTION (HANDLE REDIRECTS) ---
-# Link ko verify karein ki ye 'Anyone with link' wala hi hai
-merged_url = "https://1drv.ms/x/c/e72d8f634bb60008/IQAIALZLY48tIIDnvU4DAAAAAdx2NSH4kJ0O4VmoJBZ-DwE?e=5GtnOS"
+map_df = master.copy()
 
-@st.cache_data(ttl=60)
-def load_merged_cloud_data():
-    try:
-        # allow_redirects=True aur headers add kiye hain redirection bypass karne ke liye
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/octet-stream'
-        }
-        
-        response = requests.get(merged_url, headers=headers, allow_redirects=True, timeout=30)
-        
-        if response.status_code == 200:
-            file_bytes = BytesIO(response.content)
-            # engine='openpyxl' use karke teeno sheets read karna
-            with pd.ExcelFile(file_bytes, engine='openpyxl') as xls:
-                m = pd.read_excel(xls, sheet_name='Master')
-                s = pd.read_excel(xls, sheet_name='Service')
-                f = pd.read_excel(xls, sheet_name='FOC')
-            return m, s, f
-        else:
-            st.sidebar.error(f"Cloud Connection Error: Status {response.status_code}")
-            return None, None, None
-    except Exception as e:
-        st.sidebar.error(f"Sync failed: {str(e)}")
-        return None, None, None
+# Find City Column
+city_col = None
 
-# Data ko variables mein load karein
-master, service, foc = load_merged_cloud_data()
+for col in map_df.columns:
+    if "city" in str(col).lower():
+        city_col = col
+        break
 
-# Fail-safe logic
-if master is None or master.empty:
-    st.sidebar.warning("Using local backup as Cloud Sync failed.")
-    master = pd.read_excel("Master_Data.xlsx")
-    service = pd.read_excel("Service_Details.xlsx")
-    foc = pd.read_excel("Active_FOC.xlsx")
-    
-# Clean Columns
-for df in [master, service, foc]:
-    if not df.empty: df.columns = df.columns.str.strip()
+if city_col:
 
-def format_date(val):
-    if pd.isna(val) or str(val).strip() == "" or val == "N/A": return "N/A"
-    try: return pd.to_datetime(val).strftime('%d-%b-%y')
-    except: return str(val)
+    map_df[city_col] = map_df[city_col].astype(str)
 
-def find_col(df, kws):
-    for c in df.columns:
-        if any(k.lower() in str(c).lower() for k in kws): return c
-    return None
-
-cust_col = find_col(master, ["customer name", "customer"]) or "CUSTOMER NAME"
-mach_col = find_col(master, ["fabrication", "fab no"]) or "FABRICATION NO."
-warr_type_col = find_col(master, ["warranty type", "warranty pd"]) or "Warranty Type"
-warr_exp_col = find_col(master, ["warranty expires", "warranty exp"]) or "Warranty Expires on"
-comm_col = find_col(master, ["commissioning date", "comm date"]) or "Commissioning Date"
-
-# --- SIDEBAR ---
-with st.sidebar:
-    log_col1, log_col2 = st.columns(2)
-    try:
-        with log_col1: st.image("input_file_0.png", use_container_width=True)
-        with log_col2: st.image("input_file_2.png", use_container_width=True)
-    except: st.warning("Logo files missing!")
-
-    st.markdown("### 🛠️ Control Panel")
-    # 1. Location Filter (Toggle)
-    loc_col = find_col(master, ["location", "city", "site"])
-    if loc_col and loc_col in master.columns:
-        all_locs = sorted(master[loc_col].dropna().unique().tolist())
-        # Toggle jaisa kaam karne ke liye multiselect best hai
-        sel_locs = st.multiselect("📍 Filter by Location", options=all_locs, default=all_locs)
-        
-        # Data filter karna selected locations ke hisaab se
-        if sel_locs:
-            master = master[master[loc_col].isin(sel_locs)]
-        else:
-            st.warning("Please select at least one location.")
-        
-    # 2. Category Filter
-    if "Category" in master.columns:
-        cat_list = ["All"] + sorted(master["Category"].dropna().unique().tolist())
-        sel_cat = st.selectbox("📁 Category", cat_list)
-        if sel_cat != "All": master = master[master["Category"] == sel_cat]
-    
-    # 3. Customer & Fabrication Filters
-    sel_cust = st.selectbox("👤 Customer", ["All"] + sorted(master[cust_col].dropna().unique().tolist()))
-    f_master = master.copy()
-    if sel_cust != "All": f_master = master[master[cust_col] == sel_cust]
-    sel_mach = st.selectbox("⚙️ Track Fabrication No.", ["All"] + sorted(f_master[mach_col].dropna().astype(str).unique().tolist()))
-
-    st.markdown("---")
-    st.markdown("### 📊 Monthly Intelligence")
-    if warr_exp_col in master.columns:
-        master[warr_exp_col] = pd.to_datetime(master[warr_exp_col], errors='coerce')
-        if comm_col in master.columns: master[comm_col] = pd.to_datetime(master[comm_col], errors='coerce')
-        
-        valid_dates = master[master[warr_exp_col].notna()]
-        if not valid_dates.empty:
-            years = sorted(valid_dates[warr_exp_col].dt.year.unique().tolist(), reverse=True)
-            sel_year = st.selectbox("Select Year", years)
-            months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-            
-            w_monthly = master[master[warr_exp_col].dt.year == sel_year][warr_exp_col].dt.strftime('%B').value_counts().reindex(months).fillna(0).astype(int)
-            c_monthly = pd.Series(0, index=months)
-            if comm_col in master.columns:
-                c_monthly = master[master[comm_col].dt.year == sel_year][comm_col].dt.strftime('%B').value_counts().reindex(months).fillna(0).astype(int)
-            
-            st.table(pd.DataFrame({"Comm.": c_monthly.values, "Exp.": w_monthly.values}, index=months))
-
-    # --- 1) Metrics & Charts Section (TOTAL FIX) ---
-if sel_mach == "All":
-    # 5-Column Metrics Row
-    kpi_cols = st.columns(10)
-    kpi_cols[0].metric("👤 Total Customers", f_master[cust_col].nunique())
-    kpi_cols[1].metric("⚙️ Total Machines", f_master[mach_col].nunique())
-    
-    if "Unit Status" in f_master.columns:
-        status_map = f_master["Unit Status"].value_counts()
-        kpi_cols[2].metric("🚚 Active", status_map.get("Active", 0))
-        kpi_cols[3].metric("🏃 Shift", status_map.get("Shifted", 0))
-        kpi_cols[4].metric("🗑️ Scrap", status_map.get("Scraped", 0))
-        kpi_cols[5].metric("✘ Sold", status_map.get("Sold", 0))
-    if "Category" in f_master.columns:
-        status_map = f_master["Category"].value_counts()
-        kpi_cols[6].metric("👨🏻‍💼 A", status_map.get("A", 0))
-        kpi_cols[7].metric("🙋🏻 B", status_map.get("B", 0))
-        kpi_cols[8].metric("👨🏻‍🔧 C", status_map.get("C", 0))
-    
-    
-    # --- CHARTS ROW (SIDE-BY-SIDE ALIGNMENT) ---
-    st.markdown("---")
-    
-    # Dono charts ko ek hi line mein rakhne ke liye columns (60% Bar, 40% Pie)
-    chart_col1, chart_col2 = st.columns([0.6, 0.4])
-
-    with chart_col1:
-        st.subheader("📊 Category Warranty Status")
-        if "Category" in f_master.columns and "Warranty Type" in f_master.columns:
-            chart_df = f_master.copy()
-            
-            def deep_clean_warranty(x):
-                s = str(x).lower().replace(" ", "").replace("-", "")
-                if pd.isna(x) or s in ["nonwarranty", "nan", "outofwarranty", ""]:
-                    return "Non-Warranty"
-                return "Warranty"
-
-            chart_df['Status'] = chart_df["Warranty Type"].apply(deep_clean_warranty)
-            cat_warr_df = chart_df.groupby(['Category', 'Status']).size().reset_index(name='Count')
-            
-            fig_cat = px.bar(cat_warr_df, x='Category', y='Count', color='Status',
-                             barmode='group',
-                             color_discrete_map={'Warranty': '#00C851', 'Non-Warranty': '#3F0FF1'},
-                             text_auto=True)
-            
-            fig_cat.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                                 font_color="white", height=400, showlegend=True,
-                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            st.plotly_chart(fig_cat, use_container_width=True, key="side_bar_chart")
-
-    with chart_col2:
-        st.subheader("⭕ Due Service Overview")
-        if warr_exp_col in f_master.columns:
-            today = datetime.now()
-            f_master[warr_exp_col] = pd.to_datetime(f_master[warr_exp_col], errors='coerce')
-            
-            od = f_master[f_master[warr_exp_col] < today].shape[0]
-            curr_m = f_master[(f_master[warr_exp_col].dt.month == today.month) & (f_master[warr_exp_col].dt.year == today.year)].shape[0]
-            
-            nxt_month_date = today + pd.DateOffset(months=1)
-            nxt_m = f_master[(f_master[warr_exp_col].dt.month == nxt_month_date.month) & (f_master[warr_exp_col].dt.year == nxt_month_date.year)].shape[0]
-            
-            pie_df = pd.DataFrame({
-                "Category": ["Overdue", "Current Month Due", "Next Month Due"],
-                "Count": [od, curr_m, nxt_m]
-            })
-            
-            fig_pie = px.pie(pie_df, values='Count', names='Category', 
-                             color_discrete_sequence=['#ff4444', '#ffbb33', '#0099CC'],
-                             hole=0.4)
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", height=400,
-                                 legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"))
-            st.plotly_chart(fig_pie, use_container_width=True, key="side_pie_chart")
-
-    st.markdown("---")
-
-    # --- STATUS DUE TRACKER SECTION (OVERDUE / CURRENT / NEXT MONTH) ---
-    st.markdown("---")
-    st.header("🚨 Live Service Urgency Tracker")
-    st.write("Niche ek option chunie aur turant check kijiye ki kaun si machines Overdue hain ya unka service due kab hai:")
-
-    # Horizontal row selection option ke liye
-    selected_status = st.radio(
-        "Urgency Status Chunein:",
-        options=["⚠️ Over Due Machines", "📅 Current Month Due", "⏭️ Next Month Due"],
-        horizontal=True,
-        key="urgency_status_tracker"
-    )
-
-    # Status columns ka data name mapping
-    status_mapping = {
-        "⚠️ Over Due Machines": "Over Due Count",
-        "📅 Current Month Due": "Current Month Due Count",
-        "⏭️ Next Month Due": "Next Month Due2"
-    }
-
-    target_status_col = status_mapping[selected_status]
-
-    # Aapke bataye hue exact 11 columns ki list
-    urgency_required_cols = [
-        'Fabrication No', 'MODEL', 'CUSTOMER NAME', 'Last Service Date', 'Last Service HMR', 'Avg. Hrs', 
-        'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
-        'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
-        'Prev. AF-E Due Month', 'Prev. VK Due Month'
-    ]
-    
-    # Dates ko clean display karne ke liye list
-    urgency_date_cols = [
-        'Prev. OOF Due Month', 'Prev. AOS Due Month', 
-        'Prev. AF-C Due Month', 'Prev. AF-E Due Month', 'Prev. VK Due Month'
-    ]
-
-    urgency_existing_cols = [c for c in urgency_required_cols if c in f_master.columns]
-
-    if target_status_col in f_master.columns:
-        status_df = f_master.copy()
-        
-        # Filtering logic: Jisme count 0 se bada ho (yaani filter applicable hai)
-        # Agar Excel mein numbers hain toh > 0, agar text hai toh blank na ho uske liye handle kiya hai
+    def extract_city(x):
         try:
-            status_df[target_status_col] = pd.to_numeric(status_df[target_status_col], errors='coerce').fillna(0)
-            filtered_status_df = status_df[status_df[target_status_col] > 0].copy()
+            parts = str(x).upper().split(",")
+
+            if len(parts) >= 2:
+                return parts[1].strip()
+
+            return parts[0].strip()
+
         except:
-            filtered_status_df = status_df[status_df[target_status_col].astype(str).str.strip() != ""].copy()
+            return None
 
-        if not filtered_status_df.empty:
-            # Date formatting to "dd-mmm-yy" format (e.g., 07-Nov-21)
-            for col in urgency_date_cols:
-                if col in filtered_status_df.columns:
-                    filtered_status_df[col] = pd.to_datetime(filtered_status_df[col], errors='coerce').dt.strftime('%d-%b-%y')
+    map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
 
-            # Sirf required 11 columns ko display ke liye nikalna
-            urgency_display_df = filtered_status_df[urgency_existing_cols]
-
-            st.write(f"🔍 **Total {len(urgency_display_df)} units** mile jo **{selected_status}** category mein hain:")
-            st.dataframe(urgency_display_df, use_container_width=True, hide_index=True)
-            
-            # Data Export functionality for Ranchi office
-            csv_status = urgency_display_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label=f"📥 Download {selected_status} List (CSV)",
-                data=csv_status,
-                file_name=f"{target_status_col.lower().replace(' ', '_')}_list.csv",
-                mime='text/csv',
-                key=f"dl_btn_{target_status_col}"
-            )
-        else:
-            st.info(f"👍 Sab badiya hai! **{selected_status}** mein koi bhi machine pending nahi mili.")
-    else:
-        st.error(f"⚠️ Excel sheet mein '{target_status_col}' column nahi mila. Kripya column name ki spelling check karein.")
-        
-# --- PARTS DUE PLANNING SECTION (MULTI-SELECT UPGRADE) ---
-    st.markdown("---")
-    st.header("🛠️ Preventative Maintenance & Parts Due Planner")
-    st.write("Niche dropdown se ek ya ek se zyada parts select karein unka combined schedule dekhne ke liye:")
-
-    # Mapping columns aur labels ko handle karne ke liye
-    part_mapping = {
-        'Oil Filter (OOF)': 'Prev. OOF Due Month',
-        'Air Oil Separator (AOS)': 'Prev. AOS Due Month',
-        'Air Filter-Compressor (AF-C)': 'Prev. AF-C Due Month',
-        'Air Filter-Engine (AF-E)': 'Prev. AF-E Due Month',
-        'Valve Kit (VK)': 'Prev. VK Due Month'
-    }
-
-    # Multiple parts select karne ka option
-    selected_parts_labels = st.multiselect(
-        "Kaun-kaun se parts ka Due status dekhna hai?",
-        options=list(part_mapping.keys()),
-        default=['Oil Filter (OOF)'] # Default mein pehla dikhega
+    city_summary = (
+        map_df.groupby("MAP_CITY")
+        .size()
+        .reset_index(name="Machine Count")
     )
 
-    required_cols = [
-        'Fabrication No', 'MODEL', 'CUSTOMER NAME', 'Last Service Date', 'Last Service HMR', 'Avg. Hrs', 
-        'HMR Cal.', 'Due remarks', 'Prev. OOF Due Month', 
-        'Prev. AOS Due Month', 'Prev. AF-C Due Month', 
-        'Prev. AF-E Due Month', 'Prev. VK Due Month'
-    ]
-    
-    date_cols_to_format = list(part_mapping.values())
-    existing_cols = [c for c in required_cols if c in f_master.columns]
+    city_coordinates = {
+        "HAZARIBAGH":[23.9966,85.3691],
+        "DHANBAD":[23.7957,86.4304],
+        "JAMSHEDPUR":[22.8046,86.2029],
+        "RAMGARH":[23.6307,85.5214],
+        "RANCHI":[23.3441,85.3096],
+        "BOKARO":[23.6693,86.1511],
+        "PALAMU":[24.0397,84.0653],
+        "DEOGHAR":[24.4820,86.6990],
+        "GUMLA":[23.0440,84.5442],
+        "LATEHAR":[23.7446,84.5043]
+    }
 
-    if selected_parts_labels:
-        due_df = f_master.copy()
-        
-        # Sabhi selected parts ki columns ko datetime mein badalna
-        for label in selected_parts_labels:
-            col_name = part_mapping[label]
-            if col_name in due_df.columns:
-                due_df[col_name] = pd.to_datetime(due_df[col_name], errors='coerce')
+    city_summary["lat"] = city_summary["MAP_CITY"].apply(
+        lambda x: city_coordinates.get(x,[None,None])[0]
+    )
 
-        # Pehle selected part ke hisab se Year/Month filter banana
-        primary_col = part_mapping[selected_parts_labels[0]]
-        
-        # Blank dates saaf karna sirf filtering ke liye
-        filter_base_df = due_df.dropna(subset=[primary_col])
+    city_summary["lon"] = city_summary["MAP_CITY"].apply(
+        lambda x: city_coordinates.get(x,[None,None])[1]
+    )
 
-        if not filter_base_df.empty:
-            filter_base_df['Year'] = filter_base_df[primary_col].dt.year.astype(int)
-            filter_base_df['Month'] = filter_base_df[primary_col].dt.strftime('%B')
+    city_summary = city_summary.dropna()
 
-            f_col1, f_col2 = st.columns(2)
-            with f_col1:
-                years = sorted(filter_base_df['Year'].unique().tolist())
-                sel_year = st.selectbox("Select Year", years, key="multi_yr")
-            with f_col2:
-                months = filter_base_df[filter_base_df['Year'] == sel_year]['Month'].unique().tolist()
-                sel_month = st.selectbox("Select Month", months, key="multi_mo")
+    if not city_summary.empty:
 
-            # Final Table Filter
-            final_table_df = filter_base_df[(filter_base_df['Year'] == sel_year) & (filter_base_df['Month'] == sel_month)].copy()
-            
-            # Date formatting to "dd-mmm-yy"
-            for col in date_cols_to_format:
-                if col in final_table_df.columns:
-                    final_table_df[col] = pd.to_datetime(final_table_df[col], errors='coerce').dt.strftime('%d-%b-%y')
+        st.success(
+            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
+        )
 
-            display_df = final_table_df[existing_cols]
-
-            st.write(f"🔍 **Total {len(display_df)} units** found matching your criteria in **{sel_month} {sel_year}**")
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-            
-            # Combined Download
-            csv = display_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Combined Due List (CSV)",
-                data=csv,
-                file_name=f"combined_parts_due_{sel_month}_{sel_year}.csv",
-                mime='text/csv',
+        st.map(
+            city_summary.rename(
+                columns={
+                    "lat":"latitude",
+                    "lon":"longitude"
+                }
             )
-        else:
-            st.info("Chune gaye primary part ke liye koi records nahi mile.")
+        )
+
+        st.dataframe(
+            city_summary.sort_values(
+                "Machine Count",
+                ascending=False
+            ),
+            use_container_width=True
+        )
+
     else:
-        st.warning("Kripya kam se kam ek part dropdown se select karein.")
-        
-        
-# --- TRACKER & FOC LOGIC ---
-foc_display = pd.DataFrame() # Initializing to avoid error
 
-if sel_mach != "All":
-    m_data = master[master[mach_col].astype(str) == str(sel_mach)].iloc[0]
-    st.subheader(f"💎 Live Tracking: {sel_mach}")
-    
-    t1, t2, t3, t4 = st.columns(4)
-    with t1:
-        st.write(f"**Customer:** {m_data.get('CUSTOMER NAME', 'N/A')}")
-        st.write(f"**Contact:** {m_data.get('Contact No. 1', 'N/A')}")
-    with t2:
-        st.warning("📅 Replacements")
-        for r in ["Oil R Date", "AFC R Date"]: st.write(f"**{r}:** {format_date(m_data.get(r))}")
-    with t3:
-        st.success("⏳ Remaining")
-        st.write(f"**Oil Remaining:** {m_data.get('LIVE - Oil remaining', '0')}")
-    with t4:
-        st.error("🚨 Dues")
-        st.write(f"**Oil Due:** {format_date(m_data.get('OIL DUE DATE'))}")
+        st.warning(
+            "No matching city coordinates found"
+        )
 
-    # --- INSERT THIS SECTION BETWEEN LIVE TRACKING & FOC TRACKER ---
-    st.markdown("---")
-    st.subheader("🛠️ Recent Service Requests")
-    
-    # Column detection for Service file
-    svc_fab = find_col(service, ["fabrication", "fab no"])
-    
-    if svc_fab:
-        # Machine wise service history filter
-        s_display = service[service[svc_fab].astype(str) == str(sel_mach)].copy()
-        
-        if not s_display.empty:
-            # Date sorting taaki latest pehle dikhe
-            if "Call Logged Date" in s_display.columns:
-                s_display = s_display.sort_values("Call Logged Date", ascending=False)
-            
-            # Top 5 records dikhane ke liye loop
-            for _, row in s_display.head(5).iterrows():
-                call_date = format_date(row.get('Call Logged Date'))
-                call_type = row.get('Call Type', 'Service')
-                hmr = row.get('Call HMR', 'N/A')
-                
-                with st.expander(f"📅 {call_date} | HMR: {hmr} | Type: {call_type}"):
-                    st.write(f"**Engineer:** {row.get('Service Engineer Name', 'N/A')}")
-                    st.info(f"**Action Taken:** {row.get('Service Engineer Comments', 'No comments available.')}")
-        else:
-            st.info("Is machine ke liye koi service history available nahi hai.")
-    else:
-        st.error("Service sheet mein 'Fabrication' column nahi mila.")
-        
-    st.markdown("---")
-  
-    # FOC Details
-   # --- FIXED FOC TRACKER (GROUPED BY FOC NUMBER) ---
-    st.subheader("📦 FOC Status Tracker")
-    foc_fab_col = find_col(foc, ["fabrication", "fab no"])
-    
-    if foc_fab_col:
-        f_display = foc[foc[foc_fab_col].astype(str) == str(sel_mach)].copy()
-        
-        if not f_display.empty:
-            # FOC Number ke hisaab se group banana taaki duplicate headers na dikhein
-            grouped = f_display.groupby("FOC Number")
-            
-            # Latest FOC pehle dikhane ke liye (Based on first entry of group)
-            sorted_groups = sorted(grouped, key=lambda x: str(x[1]["Created On"].iloc[0]) if "Created On" in x[1].columns else "", reverse=True)
+else:
 
-            for foc_no, group_df in sorted_groups:
-                first_row = group_df.iloc[0]
-                f_date = format_date(first_row.get("Created On"))
-                f_status_col = find_col(foc, ["foc status", "status"])
-                f_status = first_row.get(f_status_col, "In Process") if f_status_col else "N/A"
-                
-                # Header mein sirf ek baar FOC Details dikhegi
-                with st.expander(f"📦 FOC: {foc_no} | 📅 {f_date} | 🏷️ Status: {f_status}"):
-                    st.write(f"**Work Order:** {first_row.get('Work Order Number', 'N/A')}")
-                    st.markdown("---")
-                    # Group ke andar ke saare parts ki list
-                    for _, row in group_df.iterrows():
-                        st.write(f"🔹 **Part:** {row.get('Part Code', 'N/A')} | **Qty:** {row.get('Qty', '1')}")
-                        st.caption(f"Details: {row.get('Failure Material Details', 'No description')}")
-                        st.markdown("---")
-        else:
-            st.info("Is machine ke liye koi FOC record nahi mila.")
-
-# --- EXPORT REPORT ---
-if not foc_display.empty:
-    st.markdown("---")
-    st.subheader("📊 Export FOC Report")
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False)
-        return output.getvalue()
-    
-    st.download_button("📥 Download Excel Report", data=to_excel(foc_display), file_name="FOC_Report.xlsx")
+    st.error("City column not found in Master sheet")

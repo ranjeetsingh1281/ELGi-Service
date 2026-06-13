@@ -335,19 +335,31 @@ if city_col:
     map_df[city_col] = map_df[city_col].astype(str)
 
     def extract_city(x):
-        try:
-            parts = str(x).upper().split(",")
 
-            if len(parts) >= 2:
-                return parts[1].strip()
+    txt = str(x).upper()
 
-            return parts[0].strip()
+    city_master = [
+        "HAZARIBAGH",
+        "DHANBAD",
+        "JAMSHEDPUR",
+        "RAMGARH",
+        "RANCHI",
+        "BOKARO",
+        "PALAMU",
+        "DEOGHAR",
+        "GUMLA",
+        "LATEHAR"
+    ]
 
-        except:
-            return None
+    for city in city_master:
+        if city in txt:
+            return city
 
+    return None
+    
     map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
-
+    st.write("Detected Cities:")
+    st.write(map_df["MAP_CITY"].value_counts())
     city_summary = (
         map_df.groupby("MAP_CITY")
         .size()

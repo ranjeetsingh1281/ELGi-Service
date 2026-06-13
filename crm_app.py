@@ -329,34 +329,35 @@ for col in map_df.columns:
     if "city" in str(col).lower():
         city_col = col
         break
-
 if city_col:
 
     map_df[city_col] = map_df[city_col].astype(str)
 
     def extract_city(x):
-    txt = str(x).upper()
 
-    city_master = [
-        "HAZARIBAGH",
-        "DHANBAD",
-        "JAMSHEDPUR",
-        "RAMGARH",
-        "RANCHI",
-        "BOKARO",
-        "PALAMU",
-        "DEOGHAR",
-        "GUMLA",
-        "LATEHAR"
-    ]
+        txt = str(x).upper()
 
-    for city in city_master:
-        if city in txt:
-            return city
+        city_master = [
+            "HAZARIBAGH",
+            "DHANBAD",
+            "JAMSHEDPUR",
+            "RAMGARH",
+            "RANCHI",
+            "BOKARO",
+            "PALAMU",
+            "DEOGHAR",
+            "GUMLA",
+            "LATEHAR"
+        ]
 
-    return None
-    
+        for city in city_master:
+            if city in txt:
+                return city
+
+        return None
+
     map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
+
     st.write("Detected Cities:")
     st.write(map_df["MAP_CITY"].value_counts())
     city_summary = (

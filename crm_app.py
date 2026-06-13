@@ -312,39 +312,31 @@ if sel_mach == "All":
     else:
         st.error(f"⚠️ Excel sheet mein '{target_status_col}' column nahi mila. Kripya column name ki spelling check karein.")
 
-# ==========================
+# =====================================================
 # LOCATION BASED MACHINE POPULATION
-# ==========================
+# =====================================================
 
 st.markdown("---")
 st.subheader("🌍 Location Based Machine Population")
 
-map_df = master.copy()
-
-# Find City Column
 city_col = None
 
-
-for col in map_df.columns:
-    if "city" in str(col).lower():
-        city_col = col
+for c in master.columns:
+    if "city" in str(c).lower():
+        city_col = c
         break
 
 if city_col:
 
-    map_df[city_col] = map_df[city_col].astype(str)
+    map_df = master.copy()
 
     def extract_city(x):
-        try:
-            parts = str(x).upper().split(",")
+        txt = str(x).upper()
 
-            if len(parts) >= 2:
-                return parts[1].strip()
+        if "," in txt:
+            return txt.split(",")[0].strip()
 
-            return parts[0].strip()
-
-        except:
-            return None
+        return txt.strip()
 
     map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
 
@@ -367,54 +359,43 @@ if city_col:
         "LATEHAR":[23.7446,84.5043]
     }
 
-    city_summary["lat"] = city_summary["MAP_CITY"].apply(
+    city_summary["lat"] = city_summary["MAP_CITY"].map(
         lambda x: city_coordinates.get(x,[None,None])[0]
     )
 
-    city_summary["lon"] = city_summary["MAP_CITY"].apply(
+    city_summary["lon"] = city_summary["MAP_CITY"].map(
         lambda x: city_coordinates.get(x,[None,None])[1]
     )
 
     city_summary = city_summary.dropna()
 
-    m = folium.Map(
-    location=[23.5, 85.5],
-    zoom_start=6
-)
-
-for _, r in city_summary.iterrows():
-
-    folium.CircleMarker(
-        location=[r["lat"], r["lon"]],
-        radius=max(8, r["Machine Count"]/3),
-        popup=f"""
-        <b>{r['MAP_CITY']}</b><br>
-        Machines: {r['Machine Count']}
-        """,
-        tooltip=r["MAP_CITY"],
-        fill=True
-    ).add_to(m)
-
-st_folium(
-    m,
-    width=1200,
-    height=500,
-    key="machine_population_map"
-)
-
     if not city_summary.empty:
 
-        st.success(
-            f"📍 {city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
+        fmap = folium.Map(
+            location=[23.5,85.5],
+            zoom_start=6
         )
 
-        st.map(
-            city_summary.rename(
-                columns={
-                    "lat":"latitude",
-                    "lon":"longitude"
-                }
-            )
+        for _, r in city_summary.iterrows():
+
+            folium.CircleMarker(
+                location=[r["lat"], r["lon"]],
+                radius=max(8, r["Machine Count"]/3),
+                popup=f"{r['MAP_CITY']}<br>Machines: {r['Machine Count']}",
+                tooltip=r["MAP_CITY"],
+                fill=True,
+                color="red"
+            ).add_to(fmap)
+
+        st_folium(
+            fmap,
+            width=1200,
+            height=500,
+            key="machine_population_map"
+        )
+
+        st.success(
+            f"{city_summary['Machine Count'].sum()} Machines Across {len(city_summary)} Cities"
         )
 
         st.dataframe(
@@ -425,20 +406,203 @@ st_folium(
             use_container_width=True
         )
 
-    else:
-
-        st.warning(
-            "No matching city coordinates found"
-        )
-
 else:
+    st.warning("City column not found")
 
-    st.error("City column not found in Master sheet")
+# =====================================================
+# FOC ANALYTICS CENTER
+# =====================================================
 
-    
-    st.markdown("---")
+st.markdown("---")
 st.header("📦 FOC Analytics Center")
 
+k1,k2,k3,k4 = st.columns(4)
+
+k1.metric("Total FOC", len(foc))
+
+k2.metric(
+    "Customers",
+    foc["Customer Name"].nunique()
+    if "Customer Name" in foc.columns else 0
+)
+
+k3.metric(
+    "Part Codes",
+    foc["Part Code"].nunique()
+    if "Part Code" in foc.columns else 0
+)
+
+k4.metric(
+    "FOC Types",
+    foc["FOC Type"].nunique()
+    if "FOC Type" in foc.columns else 0
+)
+
+if "Part Code" in foc.columns:
+
+    top_parts = (
+        foc["Part Code"]
+        .value_counts()
+        .head(10)
+    )
+
+    fig = px.bar(
+        x=top_parts.index,
+        y=top_parts.values,
+        title="Top Consumed Parts"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+if "Failure Material Details" in foc.columns:
+
+    fail_df = (
+        foc["Failure Material Details"]
+        .value_counts()
+        .head(10)
+    )
+
+    fig2 = px.bar(
+        x=fail_df.values,
+        y=fail_df.index,
+        orientation="h",
+        title="Top Failure Materials"
+    )
+
+    st.plotly_chart(
+        fig2,
+        use_container_width=True
+    )
+
+# =====================================================
+# MACHINE TRACKER
+# =====================================================
+
+if sel_mach != "All":
+
+    st.markdown("---")
+    st.header(f"⚙️ Machine Intelligence : {sel_mach}")
+
+    machine_df = master[
+        master[mach_col].astype(str)==str(sel_mach)
+    ]
+
+    if not machine_df.empty:
+
+        m_data = machine_df.iloc[0]
+
+        c1,c2,c3,c4 = st.columns(4)
+
+        with c1:
+            st.info("👤 Customer")
+            st.write(m_data.get("CUSTOMER NAME","N/A"))
+
+        with c2:
+            st.info("🔧 Model")
+            st.write(m_data.get("MODEL","N/A"))
+
+        with c3:
+            st.info("📍 Location")
+            st.write(m_data.get(city_col,"N/A"))
+
+        with c4:
+            st.info("🏭 Fabrication")
+            st.write(sel_mach)
+
+        # ==================================
+        # Predictive Maintenance Engine
+        # ==================================
+
+        st.markdown("---")
+        st.subheader("🤖 Predictive Maintenance Engine")
+
+        oil_rem = pd.to_numeric(
+            m_data.get("LIVE - Oil remaining",0),
+            errors="coerce"
+        )
+
+        st.metric(
+            "Oil Remaining Hours",
+            int(oil_rem)
+            if pd.notna(oil_rem)
+            else 0
+        )
+
+        if oil_rem < 500:
+            st.error("Critical Service Risk")
+
+        elif oil_rem < 1000:
+            st.warning("Service Due Soon")
+
+        else:
+            st.success("Healthy Condition")
+
+        # ==================================
+        # Service History
+        # ==================================
+
+        st.markdown("---")
+        st.subheader("🛠 Service History")
+
+        svc_fab = find_col(
+            service,
+            ["fabrication"]
+        )
+
+        if svc_fab:
+
+            svc_df = service[
+                service[svc_fab]
+                .astype(str)==str(sel_mach)
+            ]
+
+            if not svc_df.empty:
+
+                for _, row in svc_df.head(20).iterrows():
+
+                    with st.expander(
+                        f"{row.get('Call Logged Date','')} | {row.get('Call Type','Service')}"
+                    ):
+
+                        st.write(
+                            f"Call HMR : {row.get('Call HMR','N/A')}"
+                        )
+
+                        st.write(
+                            row.get(
+                                'Service Engineer Comments',
+                                'No Comment'
+                            )
+                        )
+
+        # ==================================
+        # FOC Tracker
+        # ==================================
+
+        st.markdown("---")
+        st.subheader("📦 FOC Tracker")
+
+        foc_fab = find_col(
+            foc,
+            ["fabrication"]
+        )
+
+        if foc_fab:
+
+            foc_df = foc[
+                foc[foc_fab]
+                .astype(str)==str(sel_mach)
+            ]
+
+            if not foc_df.empty:
+
+                st.dataframe(
+                    foc_df,
+                    use_container_width=True
+                )
 # ==============================================
 # KPI Card
 # ==============================================

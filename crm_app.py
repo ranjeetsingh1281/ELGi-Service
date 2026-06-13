@@ -357,7 +357,13 @@ if city_col:
         return None
 
     map_df["MAP_CITY"] = map_df[city_col].apply(extract_city)
+    st.write("City Column Used:", city_col)
 
+    st.write("Original City Data:")
+    st.dataframe(map_df[[city_col]].head(20))
+
+    st.write("Detected Cities:")
+    st.dataframe(map_df[[city_col, "MAP_CITY"]].head(20))
     st.write("Detected Cities:")
     st.write(map_df["MAP_CITY"].value_counts())
     city_summary = (

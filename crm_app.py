@@ -336,19 +336,18 @@ if city_col:
 
     def extract_city(x):
 
-    txt = str(x).upper()
-
-    city_master = [
-        "HAZARIBAGH",
-        "DHANBAD",
-        "JAMSHEDPUR",
-        "RAMGARH",
-        "RANCHI",
-        "BOKARO",
-        "PALAMU",
-        "DEOGHAR",
-        "GUMLA",
-        "LATEHAR"
+        txt = str(x).upper()
+        city_master = [
+            "HAZARIBAGH",
+            "DHANBAD",
+            "JAMSHEDPUR",
+            "RAMGARH",
+            "RANCHI",
+            "BOKARO",
+            "PALAMU",
+            "DEOGHAR",
+            "GUMLA",
+            "LATEHAR"
     ]
 
     for city in city_master:
